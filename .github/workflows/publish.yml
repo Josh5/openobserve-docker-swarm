@@ -1,0 +1,22 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  publish-swarm-stack-templates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish Swarm Template
+        uses: Josh5/action.publish-swarm-stack@4392d434d4cfc8df552c7e92cf063428343f96d2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          templates_path: docker-swarm-templates
+          branch_name: release/latest

@@ -1,0 +1,15 @@
+# Ignore IDE config
+/.idea/**
+
+# Build & Temp files
+**/dist/**
+**/build/**
+/tmp/**
+/temp/**
+
+# Development files
+.env
+docker-swarm-templates/appdata/
+docker-swarm-templates/*.env
+docker-swarm-templates/*.sh
+**/venv/**

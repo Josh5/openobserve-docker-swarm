@@ -1,0 +1,263 @@
+# ---------------
+# OpenObserve + PostgreSQL
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   #-    Configure a placement constraint to where the container will be run.
+#   #-    Examples:
+#   #-        - node.hostname==<hostname>
+#   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
+#   #-        - node.role!=manager
+#   PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #@ Traefik Config
+#   #-  - TRAEFIK_DOMAIN -
+#   #-    The domain where OpenObserve is accessed.
+#   TRAEFIK_DOMAIN=openobserve.local
+#   #-  - TRAEFIK_ROUTER_MIDDLEWARES -
+#   #-    A comma separated list of Traefik middleware to run in the configured router.
+#   TRAEFIK_ROUTER_MIDDLEWARES=compress
+#   #@ Host Config
+#   #-  - TZ -
+#   #-    The timezone.
+#   TZ=Etc/UTC
+#   #-  - PUID -
+#   #-    User to run services as.
+#   PUID=1000
+#   #-  - PGID -
+#   #-    Group to run services as.
+#   PGID=1000
+#   #@ Resource Limits
+#   #-  - OPENOBSERVE_MEMLIMIT -
+#   #-    Limit OpenObserve container memory.
+#   OPENOBSERVE_MEMLIMIT=4g
+#   #-  - POSTGRES_MEMLIMIT -
+#   #-    Limit Postgres container memory.
+#   POSTGRES_MEMLIMIT=1g
+#   #@ Container Paths
+#   #-  - OPENOBSERVE_DATA_PATH -
+#   #-    The path to the OpenObserve data directory (WAL, cache, local DB).
+#   OPENOBSERVE_DATA_PATH=./appdata/openobserve
+#   #-  - POSTGRES_DATA_PATH -
+#   #-    The path to the Postgres data directory
+#   POSTGRES_DATA_PATH=./appdata/postgres
+#   #@ Ports
+#   #-  - OPENOBSERVE_HTTP_PUBLISHED_PORT -
+#   #-    OpenObserve HTTP port published to the host.
+#   OPENOBSERVE_HTTP_PUBLISHED_PORT=5080
+#   #-  - OPENOBSERVE_GRPC_PUBLISHED_PORT -
+#   #-    OpenObserve gRPC port published to the host.
+#   OPENOBSERVE_GRPC_PUBLISHED_PORT=5081
+#   #-  - POSTGRES_PUBLISHED_PORT -
+#   #-    The Postgres port published to the host
+#   POSTGRES_PUBLISHED_PORT=5432
+#   #@ OpenObserve Admin
+#   #-  - ZO_ROOT_USER_EMAIL -
+#   #-    Root user email.
+#   ZO_ROOT_USER_EMAIL=admin@example.com
+#   #-  - ZO_ROOT_USER_PASSWORD -
+#   #-    Root user password.
+#   ZO_ROOT_USER_PASSWORD=ChangeMe123!
+#   #@ OpenObserve Schema Settings
+#   #-  - ZO_ALLOW_USER_DEFINED_SCHEMAS -
+#   #-    If true, allows users to define schemas for streams.
+#   ZO_ALLOW_USER_DEFINED_SCHEMAS=false
+#   #@ OpenObserve Storage (Local mode)
+#   #-  - ZO_LOCAL_MODE -
+#   #-    true for single-node; set false for cluster mode.
+#   ZO_LOCAL_MODE=true
+#   #-  - ZO_LOCAL_MODE_STORAGE -
+#   #-    disk or s3. If using MinIO/S3 set to s3. With s3, stream data goes to object storage and local disk holds WAL/cache.
+#   ZO_LOCAL_MODE_STORAGE=s3
+#   #-  - ZO_S3_SERVER_URL -
+#   #-    S3/MinIO server URL (must include scheme), e.g. http://minio:9000
+#   ZO_S3_SERVER_URL=http://minio:9000
+#   #-  - ZO_S3_REGION_NAME -
+#   #-    Region name, e.g. us-west-1 (optional for MinIO; set if your MinIO enforces a region)
+#   ZO_S3_REGION_NAME=us-west-1
+#   #-  - ZO_S3_BUCKET_NAME -
+#   #-    Bucket name used for OpenObserve data.
+#   ZO_S3_BUCKET_NAME=openobserve-data
+#   #-  - ZO_S3_ACCESS_KEY -
+#   #-    Access key for S3/MinIO.
+#   ZO_S3_ACCESS_KEY=openobserve
+#   #-  - ZO_S3_SECRET_KEY -
+#   #-    Secret key for S3/MinIO.
+#   ZO_S3_SECRET_KEY=supersecret
+#   #-  - ZO_S3_PROVIDER -
+#   #-    Provider name, use minio for MinIO.
+#   ZO_S3_PROVIDER=minio
+#   #-  - ZO_S3_BUCKET_PREFIX -
+#   #-    Optional prefix, e.g. openobserve/
+#   ZO_S3_BUCKET_PREFIX=
+#   #@ OpenObserve Metadata Store (Postgres)
+#   #-  - POSTGRES_USER -
+#   #-    The username for Postgres
+#   POSTGRES_USER=openobserve
+#   #-  - POSTGRES_PASSWORD -
+#   #-    The password for Postgres
+#   POSTGRES_PASSWORD=supersecret
+#   #-  - POSTGRES_DB -
+#   #-    The database name for OpenObserve metadata
+#   POSTGRES_DB=openobserve
+#   #-  - ZO_META_STORE -
+#   #-    Metadata store backend.
+#   ZO_META_STORE=postgres
+#   #-  - ZO_META_POSTGRES_DSN -
+#   #-    Postgres DSN.
+#   ZO_META_POSTGRES_DSN=postgres://openobserve:supersecret@postgres:5432/openobserve
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${OPENOBSERVE_DATA_PATH:?} ${POSTGRES_DATA_PATH:?}
+#   > sudo chown ${PUID:?}:${PGID:?} ${OPENOBSERVE_DATA_PATH:?}
+#   > sudo chown 999:999 ${POSTGRES_DATA_PATH:?}
+#   > echo && echo "$(cd "${OPENOBSERVE_DATA_PATH:?}" && pwd)" && ls -la ${OPENOBSERVE_DATA_PATH:?}
+#   > echo && echo "$(cd "${POSTGRES_DATA_PATH:?}" && pwd)" && ls -la ${POSTGRES_DATA_PATH:?}
+# <script_end>
+#
+# ---------------
+---
+version: '3.8'
+
+networks:
+  swarm-public:
+    external: true
+  private-net:
+
+x-deploy-defaults:
+  service:
+    deploy: &deploy_defaults
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+
+x-environment-defaults:
+  service:
+    environment: &environment_defaults
+      TZ: ${TZ:-Etc/UTC}
+
+services:
+  # -- PostgreSQL --
+  #
+  # PostgreSQL is used as the OpenObserve metadata store when ZO_META_STORE=postgres.
+  #
+  postgres:
+    image: postgres:17-bookworm
+    deploy:
+      <<: *deploy_defaults
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMLIMIT:-1g}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-openobserve} -d ${POSTGRES_DB:-openobserve}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # NETWORK:
+    networks:
+      - private-net
+    ports:
+      - target: 5432
+        published: ${POSTGRES_PUBLISHED_PORT:-5432}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      <<: *environment_defaults
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-openobserve}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:?}
+        target: /var/lib/postgresql/data
+
+  # -- OpenObserve --
+  #
+  # OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.
+  #
+  openobserve:
+    image: openobserve/openobserve@sha256:b0ecac30c928bf00705aa7ae7ec2469a78a54da71b647996ff212f24ceea4ae9
+    user: ${PUID:-1000}:${PGID:-1000}
+    deploy:
+      <<: *deploy_defaults
+      resources:
+        limits:
+          memory: ${OPENOBSERVE_MEMLIMIT:-4g}
+      labels:
+        #### -- Enable traefik router for this service
+        - 'traefik.enable=true'
+
+        #### -- Define traefik router for this service
+        - 'traefik.http.services.swarm-openobserve.loadbalancer.server.port=${OPENOBSERVE_HTTP_PUBLISHED_PORT:-5080}'
+        - 'traefik.http.routers.swarm-openobserve.entrypoints=web'
+        # Configure router domain
+        - 'traefik.http.routers.swarm-openobserve.rule=Host(`${TRAEFIK_DOMAIN:?}`)'
+        # Enable auth middleware on this service
+        - 'traefik.http.routers.swarm-openobserve.middlewares=${TRAEFIK_ROUTER_MIDDLEWARES:-compress}'
+
+        #### -- Define homepage configuration
+        - 'homepage.group=Observability'
+        - 'homepage.name=OpenObserve'
+        - 'homepage.weight=1'
+        - 'homepage.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/openobserve.png'
+        - 'homepage.description=OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.'
+        - 'homepage.href=http://${TRAEFIK_DOMAIN:?}/'
+    # NETWORK:
+    networks:
+      - swarm-public
+      - private-net
+    ports:
+      # HTTP
+      - target: 5080
+        published: ${OPENOBSERVE_HTTP_PUBLISHED_PORT:-5080}
+        protocol: tcp
+        mode: host
+      # gRPC
+      - target: 5081
+        published: ${OPENOBSERVE_GRPC_PUBLISHED_PORT:-5081}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      <<: *environment_defaults
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:?}
+      ZO_ALLOW_USER_DEFINED_SCHEMAS: ${ZO_ALLOW_USER_DEFINED_SCHEMAS:-false}
+      ZO_LOCAL_MODE: ${ZO_LOCAL_MODE:-true}
+      ZO_LOCAL_MODE_STORAGE: ${ZO_LOCAL_MODE_STORAGE:-disk}
+      ZO_S3_SERVER_URL: ${ZO_S3_SERVER_URL:-}
+      ZO_S3_REGION_NAME: ${ZO_S3_REGION_NAME:-}
+      ZO_S3_ACCESS_KEY: ${ZO_S3_ACCESS_KEY:-}
+      ZO_S3_SECRET_KEY: ${ZO_S3_SECRET_KEY:-}
+      ZO_S3_BUCKET_NAME: ${ZO_S3_BUCKET_NAME:-}
+      ZO_S3_BUCKET_PREFIX: ${ZO_S3_BUCKET_PREFIX:-}
+      ZO_S3_PROVIDER: ${ZO_S3_PROVIDER:-}
+      ZO_META_STORE: ${ZO_META_STORE:-postgres}
+      ZO_META_POSTGRES_DSN: ${ZO_META_POSTGRES_DSN:-postgres://openobserve:supersecret@postgres:5432/openobserve}
+      ZO_DATA_DIR: /data/openobserve
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${OPENOBSERVE_DATA_PATH:?}
+        target: /data

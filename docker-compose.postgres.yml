@@ -1,0 +1,107 @@
+# ---------------
+# PostgreSQL
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   #-    Configure a placement constraint to where the container will be run.
+#   #-    Examples:
+#   #-        - node.hostname==<hostname>
+#   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
+#   #-        - node.role!=manager
+#   POSTGRES_PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #@ Host Config
+#   #-  - TZ -
+#   #-    The timezone.
+#   TZ=Etc/UTC
+#   #@ Resource Limits
+#   #-  - POSTGRES_MEMLIMIT -
+#   #-    Limit Postgres container memory.
+#   POSTGRES_MEMLIMIT=1g
+#   #@ Container Paths
+#   #-  - POSTGRES_DATA_PATH -
+#   #-    The path to the Postgres data directory
+#   POSTGRES_DATA_PATH=./appdata/postgres
+#   #@ Postgres Config
+#   #-  - POSTGRES_USER -
+#   #-    The username for Postgres
+#   POSTGRES_USER=openobserve
+#   #-  - POSTGRES_PASSWORD -
+#   #-    The password for Postgres
+#   POSTGRES_PASSWORD=supersecret
+#   #-  - POSTGRES_DB -
+#   #-    The database name for OpenObserve metadata
+#   POSTGRES_DB=openobserve
+#   #-  - POSTGRES_PUBLISHED_PORT -
+#   #-    The Postgres port published to the host
+#   POSTGRES_PUBLISHED_PORT=5432
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${POSTGRES_DATA_PATH:?}
+#   > sudo chown 999:999 ${POSTGRES_DATA_PATH:?}
+#   > echo && echo "$(cd "${POSTGRES_DATA_PATH:?}" && pwd)" && ls -la ${POSTGRES_DATA_PATH:?}
+# <script_end>
+#
+# ---------------
+---
+version: '3.8'
+
+networks:
+  swarm-public:
+    external: true
+
+services:
+  # -- PostgreSQL --
+  #
+  # PostgreSQL is used as the OpenObserve metadata store when ZO_META_STORE=postgres.
+  #
+  postgres:
+    image: postgres:17-bookworm
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      placement:
+        constraints:
+          - ${POSTGRES_PLACEMENT_CONSTRAINT}
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMLIMIT:-1g}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-openobserve} -d ${POSTGRES_DB:-openobserve}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # NETWORK:
+    networks:
+      - swarm-public
+    ports:
+      - target: 5432
+        published: ${POSTGRES_PUBLISHED_PORT:-5432}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-openobserve}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:?}
+        target: /var/lib/postgresql/data

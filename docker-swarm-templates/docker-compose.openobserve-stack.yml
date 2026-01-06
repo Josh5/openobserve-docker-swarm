@@ -35,7 +35,7 @@
 #   OPENOBSERVE_MEMLIMIT=4g
 #   #@ Container Paths
 #   #-  - OPENOBSERVE_DATA_PATH -
-#   #-    The path to the OpenObserve data directory (WAL, DB, cache).
+#   #-    The path to the OpenObserve data directory (WAL, cache, local DB).
 #   OPENOBSERVE_DATA_PATH=./appdata/openobserve
 #   #@ Ports
 #   #-  - OPENOBSERVE_HTTP_PUBLISHED_PORT -
@@ -51,18 +51,22 @@
 #   #-  - ZO_ROOT_USER_PASSWORD -
 #   #-    Root user password.
 #   ZO_ROOT_USER_PASSWORD=ChangeMe123!
+#   #@ OpenObserve Schema Settings
+#   #-  - ZO_ALLOW_USER_DEFINED_SCHEMAS -
+#   #-    If true, allows users to define schemas for streams.
+#   ZO_ALLOW_USER_DEFINED_SCHEMAS=false
 #   #@ OpenObserve Storage (Local mode)
 #   #-  - ZO_LOCAL_MODE -
 #   #-    true for single-node; set false for cluster mode.
 #   ZO_LOCAL_MODE=true
 #   #-  - ZO_LOCAL_MODE_STORAGE -
-#   #-    disk or s3. If using MinIO/S3 set to s3.
+#   #-    disk or s3. If using MinIO/S3 set to s3. With s3, stream data goes to object storage and local disk holds WAL/cache.
 #   ZO_LOCAL_MODE_STORAGE=s3
 #   #-  - ZO_S3_SERVER_URL -
-#   #-    S3/MinIO server URL, e.g. http://minio:9000
+#   #-    S3/MinIO server URL (must include scheme), e.g. http://minio:9000
 #   ZO_S3_SERVER_URL=http://minio:9000
 #   #-  - ZO_S3_REGION_NAME -
-#   #-    Region name, e.g. us-west-1
+#   #-    Region name, e.g. us-west-1 (optional for MinIO; set if your MinIO enforces a region)
 #   ZO_S3_REGION_NAME=us-west-1
 #   #-  - ZO_S3_BUCKET_NAME -
 #   #-    Bucket name used for OpenObserve data.
@@ -178,6 +182,7 @@ services:
       <<: *environment_defaults
       ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
       ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:?}
+      ZO_ALLOW_USER_DEFINED_SCHEMAS: ${ZO_ALLOW_USER_DEFINED_SCHEMAS:-false}
       ZO_LOCAL_MODE: ${ZO_LOCAL_MODE:-true}
       ZO_LOCAL_MODE_STORAGE: ${ZO_LOCAL_MODE_STORAGE:-disk}
       ZO_S3_SERVER_URL: ${ZO_S3_SERVER_URL:-}

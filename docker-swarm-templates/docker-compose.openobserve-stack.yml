@@ -86,12 +86,6 @@
 #   #-  - ZO_META_POSTGRES_DSN -
 #   #-    Postgres DSN. Example: postgres://openobserve:supersecret@<stack>_postgres:5432/openobserve
 #   ZO_META_POSTGRES_DSN=
-#   #-  - ZO_META_CONNECTION_POOL_MIN_SIZE -
-#   #-    Minimum Postgres connection pool size.
-#   ZO_META_CONNECTION_POOL_MIN_SIZE=
-#   #-  - ZO_META_CONNECTION_POOL_MAX_SIZE -
-#   #-    Maximum Postgres connection pool size.
-#   ZO_META_CONNECTION_POOL_MAX_SIZE=
 # <config_end>
 #
 # ---------------
@@ -195,8 +189,6 @@ services:
       ZO_S3_PROVIDER: ${ZO_S3_PROVIDER:-}
       ZO_META_STORE: ${ZO_META_STORE:-sqlite}
       ZO_META_POSTGRES_DSN: ${ZO_META_POSTGRES_DSN:-}
-      ZO_META_CONNECTION_POOL_MIN_SIZE: ${ZO_META_CONNECTION_POOL_MIN_SIZE:-}
-      ZO_META_CONNECTION_POOL_MAX_SIZE: ${ZO_META_CONNECTION_POOL_MAX_SIZE:-}
       ZO_DATA_DIR: /data/openobserve
 
     # VOLUMES:

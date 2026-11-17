@@ -69,6 +69,8 @@ services:
   # High Performance Object Storage is Open Source, Amazon S3 compatible, Kubernetes Native and is designed for
   # cloud native workloads like AI.
   #
+  # Legacy community image: no fully patched upstream community release is available.
+  # Review the README upgrade notes before using this service for a new deployment.
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z #>convert_sha256
     user: ${PUID:-1000}:${PGID:-1000}

@@ -555,7 +555,7 @@ services:
   # Optional bundled metadata database. Enable with POSTGRES_REPLICAS=1 and ZO_META_STORE=postgres.
   #
   postgres:
-    image: postgres:17-bookworm #>convert_sha256
+    image: library/postgres:17.12-bookworm #>convert_sha256
     deploy:
       replicas: ${POSTGRES_REPLICAS:-0}
       restart_policy:
@@ -564,7 +564,7 @@ services:
         window: 5s
       placement:
         constraints:
-          - ${POSTGRES_PLACEMENT_CONSTRAINT:-${PLACEMENT_CONSTRAINT:?}}
+          - ${POSTGRES_PLACEMENT_CONSTRAINT:?}
       resources:
         limits:
           memory: ${POSTGRES_MEMLIMIT:-1g}
@@ -593,7 +593,7 @@ services:
       # -- Fluentd Log Driver labels
       service_project: openobserve-docker-swarm
       service_name: postgres
-      service_version: '17-bookworm'
+      service_version: '17.12-bookworm'
       TZ: ${TZ:-Etc/UTC}
       POSTGRES_USER: ${POSTGRES_USER:-openobserve}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}

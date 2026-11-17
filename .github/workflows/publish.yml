@@ -9,9 +9,43 @@ on:
     - cron: "30 2 * * 6"
 
 jobs:
-  build-swarm-stack-templates:
+  read-openobserve-version:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+    outputs:
+      openobserve_version: ${{ steps.version.outputs.openobserve_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read OpenObserve image version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -nE 's|^[[:space:]]+image:[[:space:]]+public\.ecr\.aws/zinclabs/openobserve(-enterprise)?:([^[:space:]@]+).*|\2|p' docker-swarm-templates/docker-compose.openobserve.yml)
+          if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ || "$version" == *.lock ]]; then
+            echo '::error::Expected one versioned OpenObserve image tag in docker-compose.openobserve.yml'
+            exit 1
+          fi
+          echo "openobserve_version=$version" >> "$GITHUB_OUTPUT"
+
+  build-swarm-stack-templates:
+    needs: read-openobserve-version
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    strategy:
+      fail-fast: false
+      # The publisher pushes all fetched tags, so publish one branch at a time.
+      max-parallel: 1
+      matrix:
+        branch:
+          - release/latest
+          - release/${{ needs.read-openobserve-version.outputs.openobserve_version }}
     permissions:
       contents: write
     steps:
@@ -25,4 +59,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           templates_path: docker-swarm-templates
-          branch_name: release/latest
+          branch_name: ${{ matrix.branch }}

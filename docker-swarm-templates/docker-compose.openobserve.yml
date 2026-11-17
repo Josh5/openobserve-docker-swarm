@@ -13,7 +13,7 @@
 #   #-        - node.role!=manager
 #   PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
 #   #-  - POSTGRES_PLACEMENT_CONSTRAINT -
-#   #-    Place Postgres on the node that holds POSTGRES_DATA_PATH. Defaults to PLACEMENT_CONSTRAINT.
+#   #-    Place Postgres on the node that holds POSTGRES_DATA_PATH. Configure separately from PLACEMENT_CONSTRAINT.
 #   POSTGRES_PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
 #   #@ Traefik Config
 #   #-  - TRAEFIK_ROUTER_ENABLED -
@@ -123,6 +123,7 @@
 #   ZO_S3_BUCKET_PREFIX=
 #   #-  - AZURE_STORAGE_ACCOUNT_NAME -
 #   #-    Azure storage account name. Required when ZO_S3_PROVIDER=azure.
+#   #-    Clear ZO_S3_ACCESS_KEY and ZO_S3_SECRET_KEY when using the AZURE_STORAGE_* credentials.
 #   AZURE_STORAGE_ACCOUNT_NAME=
 #   #-  - AZURE_STORAGE_ACCOUNT_KEY -
 #   #-    Azure storage account access key. Required when ZO_S3_PROVIDER=azure.
@@ -158,8 +159,8 @@
 #   POSTGRES_DB=openobserve
 #   #@ Enterprise Dex (OIDC)
 #   #-  - O2_DEX_SCOPES -
-#   #-    Scopes to be fetched from dex.
-#   O2_DEX_SCOPES=openid profile email offline_access
+#   #-    Scopes to be fetched from Dex; include groups when using group-based organisation mapping.
+#   O2_DEX_SCOPES=openid profile email groups offline_access
 #   #-  - O2_DEX_GROUP_ATTRIBUTE -
 #   #-    Maps user to OpenObserve organization.
 #   O2_DEX_GROUP_ATTRIBUTE=groups
@@ -211,8 +212,8 @@
 #   #-    Upstream OIDC client secret used by Dex against Google or GitLab.
 #   DEX_CONNECTOR_CLIENT_SECRET=
 #   #-  - DEX_CONNECTOR_OIDC_SCOPES -
-#   #-    Upstream scopes requested by Dex from the chosen connector.
-#   #-    Leave empty to use connector defaults.
+#   #-    Upstream scopes for the Google OIDC connector; leave empty for openid profile email.
+#   #-    The GitLab connector selects its required scopes internally and does not accept this setting.
 #   DEX_CONNECTOR_OIDC_SCOPES=
 #   #-  - DEX_CONNECTOR_GROUPS -
 #   #-    Optional space-separated GitLab groups that are allowed to log in through Dex.
@@ -256,9 +257,10 @@ services:
   # -- OpenObserve --
   #
   # OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.
+  # First staged upgrade from 0.50: back up metadata/data before applying 0.60.5.
   #
   openobserve:
-    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.50.0-rc3 #>convert_sha256
+    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.60.5 #>convert_sha256
     user: ${PUID:-1000}:${PGID:-1000}
     deploy:
       replicas: 1
@@ -315,7 +317,7 @@ services:
       # -- Fluentd Log Driver labels
       service_project: openobserve-docker-swarm
       service_name: openobserve
-      service_version: 'v0.50.0-rc3'
+      service_version: 'v0.60.5'
       # Core application identity and auth.
       TZ: ${TZ:-Etc/UTC}
       ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
@@ -335,7 +337,8 @@ services:
       #   and use the ZO_S3_* credential fields. Both services must share swarm-public.
       # - AWS S3: set ZO_S3_PROVIDER=aws and use the ZO_S3_* credential fields.
       # - Azure Blob: set ZO_S3_PROVIDER=azure, leave ZO_S3_SERVER_URL empty,
-      #   and provide AZURE_STORAGE_ACCOUNT_NAME / AZURE_STORAGE_ACCOUNT_KEY.
+      #   clear ZO_S3_ACCESS_KEY / ZO_S3_SECRET_KEY, and provide
+      #   AZURE_STORAGE_ACCOUNT_NAME / AZURE_STORAGE_ACCOUNT_KEY.
       ZO_S3_SERVER_URL: ${ZO_S3_SERVER_URL:-}
       ZO_S3_REGION_NAME: ${ZO_S3_REGION_NAME:-us-east-1}
       ZO_S3_ACCESS_KEY: ${ZO_S3_ACCESS_KEY:-}
@@ -360,7 +363,8 @@ services:
       O2_DEX_BASE_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/dex
       O2_CALLBACK_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/web/cb
       O2_DEX_REDIRECT_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/config/redirect
-      O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email offline_access}
+      O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email groups offline_access}
+      # Keep the group/role settings used by the 0.60 release line.
       O2_DEX_GROUP_ATTRIBUTE: ${O2_DEX_GROUP_ATTRIBUTE:-groups}
       O2_DEX_ROLE_ATTRIBUTE: ${O2_DEX_ROLE_ATTRIBUTE:-cn}
       O2_DEX_DEFAULT_ORG: ${O2_DEX_DEFAULT_ORG:-default}
@@ -380,7 +384,7 @@ services:
   # Dex is optional here and is intended only for OpenObserve SSO on the same hostname.
   #
   openobserve-dex:
-    image: ghcr.io/dexidp/dex:latest #>convert_sha256
+    image: ghcr.io/dexidp/dex:v2.46.1 #>convert_sha256
     deploy:
       replicas: ${DEX_REPLICAS:-0}
       restart_policy:
@@ -423,15 +427,11 @@ services:
         DEX_CONNECTOR_REDIRECT_URI="https://$${TRAEFIK_DOMAIN}/dex/callback"
 
         if [ -z "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
-          if [ "$$DEX_CONNECTOR" = "gitlab" ]; then
-            DEX_CONNECTOR_OIDC_SCOPES="openid profile email read_user"
-          else
-            DEX_CONNECTOR_OIDC_SCOPES="openid profile email"
-          fi
+          DEX_CONNECTOR_OIDC_SCOPES="openid profile email"
         fi
 
         DEX_CONNECTOR_OIDC_SCOPES_YAML=""
-        if [ -n "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
+        if [ "$$DEX_CONNECTOR" != "gitlab" ] && [ -n "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
           DEX_CONNECTOR_OIDC_SCOPES_YAML="    scopes:"
           for scope in $$DEX_CONNECTOR_OIDC_SCOPES; do
             DEX_CONNECTOR_OIDC_SCOPES_YAML="$$(printf '%s\n      - %s' "$$DEX_CONNECTOR_OIDC_SCOPES_YAML" "$$scope")"
@@ -459,6 +459,10 @@ services:
         grpc:
           addr: 0.0.0.0:$${DEX_GRPC_PORT}
         oauth2:
+          # OpenObserve uses code/refresh grants; do not expose token exchange.
+          grantTypes:
+          - authorization_code
+          - refresh_token
           skipApprovalScreen: true
         staticClients:
         - id: $${DEX_CLIENT_ID}
@@ -479,9 +483,6 @@ services:
             if [ -n "$$DEX_CONNECTOR_OIDC_GROUPS_YAML" ]; then
               printf '%s\n' "$$DEX_CONNECTOR_OIDC_GROUPS_YAML"
             fi
-            if [ -n "$$DEX_CONNECTOR_OIDC_SCOPES_YAML" ]; then
-              printf '%s\n' "$$DEX_CONNECTOR_OIDC_SCOPES_YAML"
-            fi
           } > /etc/dex/config.yaml
         else
           {
@@ -496,6 +497,10 @@ services:
         grpc:
           addr: 0.0.0.0:$${DEX_GRPC_PORT}
         oauth2:
+          # OpenObserve uses code/refresh grants; do not expose token exchange.
+          grantTypes:
+          - authorization_code
+          - refresh_token
           skipApprovalScreen: true
         staticClients:
         - id: $${DEX_CLIENT_ID}
@@ -530,7 +535,7 @@ services:
       # -- Fluentd Log Driver labels
       service_project: openobserve-docker-swarm
       service_name: openobserve-dex
-      service_version: 'latest'
+      service_version: 'v2.46.1'
       TZ: ${TZ:-Etc/UTC}
       TRAEFIK_DOMAIN: ${TRAEFIK_DOMAIN:-openobserve.invalid}
       DEX_ENABLED: ${DEX_ENABLED:-false}

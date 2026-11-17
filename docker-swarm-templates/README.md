@@ -26,7 +26,7 @@ For OpenObserve, choose `ZO_S3_PROVIDER=minio` (default), `aws` or `azure`. Crea
 
 - **MinIO:** set `ZO_S3_SERVER_URL` to the S3 API URL, e.g. `http://minio:9000`, and set the bucket, region and access keys.
 - **AWS S3:** leave `ZO_S3_SERVER_URL` empty and set the bucket, AWS region and access keys.
-- **Azure Blob:** leave `ZO_S3_SERVER_URL` empty and set the container name, `AZURE_STORAGE_ACCOUNT_NAME` and `AZURE_STORAGE_ACCOUNT_KEY`.
+- **Azure Blob:** leave `ZO_S3_SERVER_URL`, `ZO_S3_ACCESS_KEY` and `ZO_S3_SECRET_KEY` empty, and set the container name, `AZURE_STORAGE_ACCOUNT_NAME` and `AZURE_STORAGE_ACCOUNT_KEY`.
 
 ### MinIO / S3 access policy
 
@@ -70,3 +70,11 @@ Enable Traefik routing with `TRAEFIK_ROUTER_ENABLED=true` and set `TRAEFIK_DOMAI
 ### OpenObserve Dex
 
 Dex is disabled by default. Enable it with `DEX_ENABLED=true` and `DEX_REPLICAS=1`, then configure the client and connector credentials from the header. Dex requires public HTTPS and the upstream callback `https://<TRAEFIK_DOMAIN>/dex/callback`.
+
+## Upgrading existing stacks
+
+Back up OpenObserve metadata and persistent data before upgrading. This template targets `0.60.5`, the first step from `0.50` in the [staged upgrade path](https://github.com/openobserve/openobserve/discussions/12356). Database schema migrations run during startup; rehearse this step on a restored backup and validate it before advancing to the next release line. Changing `ZO_META_STORE` also requires a separate metadata/file-list migration.
+
+PostgreSQL stays on major version 17. The [17.12 release notes](https://www.postgresql.org/docs/release/17.12/) require no dump/restore for an existing 17.x database, but describe conditional reindexing, C-extension rebuilds and taking a new full backup if using incremental backups. Review those notes against the deployed database before updating.
+
+The MinIO template still uses the legacy community image. The community repository is archived and even its final release has [unfixed authentication-bypass advisories](https://github.com/minio/minio/security/advisories/GHSA-9c4q-hq6p-c237). A supported replacement or AIStor migration is required; changing to the last community tag does not resolve these findings.

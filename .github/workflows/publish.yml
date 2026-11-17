@@ -4,15 +4,21 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
+  schedule:
+    # At 02:30 on Saturday
+    - cron: "30 2 * * 6"
 
 jobs:
-  publish-swarm-stack-templates:
+  build-swarm-stack-templates:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     permissions:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Publish Swarm Template
         uses: Josh5/action.publish-swarm-stack@4392d434d4cfc8df552c7e92cf063428343f96d2

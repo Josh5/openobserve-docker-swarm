@@ -27,13 +27,13 @@
 #   #@ Postgres Config
 #   #-  - POSTGRES_USER -
 #   #-    The username for Postgres
-#   POSTGRES_USER=openobserve
+#   POSTGRES_USER=postgres
 #   #-  - POSTGRES_PASSWORD -
 #   #-    The password for Postgres
 #   POSTGRES_PASSWORD=supersecret
 #   #-  - POSTGRES_DB -
-#   #-    The database name for OpenObserve metadata
-#   POSTGRES_DB=openobserve
+#   #-    The database created on first initialisation.
+#   POSTGRES_DB=postgres
 #   #-  - POSTGRES_PUBLISHED_PORT -
 #   #-    The Postgres port published to the host
 #   POSTGRES_PUBLISHED_PORT=5432
@@ -59,15 +59,16 @@ networks:
 services:
   # -- PostgreSQL --
   #
-  # PostgreSQL is used as the OpenObserve metadata store when ZO_META_STORE=postgres.
+  # PostgreSQL is a relational database with persistent storage on the selected Swarm node.
   #
   postgres:
-    image: postgres:17-bookworm
+    image: postgres:17-bookworm #>convert_sha256
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 10s
+        window: 5s
       placement:
         constraints:
           - ${POSTGRES_PLACEMENT_CONSTRAINT}
@@ -78,7 +79,7 @@ services:
       test:
         [
           'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-openobserve} -d ${POSTGRES_DB:-openobserve}',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
         ]
       interval: 10s
       timeout: 5s
@@ -88,6 +89,7 @@ services:
     networks:
       - swarm-public
     ports:
+      # PostgreSQL administration
       - target: 5432
         published: ${POSTGRES_PUBLISHED_PORT:-5432}
         protocol: tcp
@@ -95,10 +97,14 @@ services:
 
     # ENVIRONMENT:
     environment:
+      # -- Fluentd Log Driver labels
+      service_project: postgres
+      service_name: postgres
+      service_version: '17-bookworm'
       TZ: ${TZ:-Etc/UTC}
-      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: ${POSTGRES_DB:-openobserve}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
 
     # VOLUMES:
     volumes:

@@ -12,6 +12,9 @@
 #   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
 #   #-        - node.role!=manager
 #   PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #-  - POSTGRES_PLACEMENT_CONSTRAINT -
+#   #-    Place Postgres on the node that holds POSTGRES_DATA_PATH. Defaults to PLACEMENT_CONSTRAINT.
+#   POSTGRES_PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
 #   #@ Traefik Config
 #   #-  - TRAEFIK_ROUTER_ENABLED -
 #   #-    Set true to enable Traefik routing for OpenObserve and the embedded Dex service.
@@ -39,10 +42,16 @@
 #   #-  - OPENOBSERVE_MEMLIMIT -
 #   #-    Limit OpenObserve container memory.
 #   OPENOBSERVE_MEMLIMIT=4g
+#   #-  - POSTGRES_MEMLIMIT -
+#   #-    Limit Postgres container memory.
+#   POSTGRES_MEMLIMIT=1g
 #   #@ Container Paths
 #   #-  - OPENOBSERVE_DATA_PATH -
 #   #-    The path to the OpenObserve data directory (WAL, cache, local DB).
 #   OPENOBSERVE_DATA_PATH=./appdata/openobserve
+#   #-  - POSTGRES_DATA_PATH -
+#   #-    Persistent Postgres data directory on the selected node.
+#   POSTGRES_DATA_PATH=./appdata/postgres
 #   #@ Ports
 #   #-  - OPENOBSERVE_HTTP_PUBLISHED_PORT -
 #   #-    OpenObserve HTTP port published to the host (default: 5080).
@@ -52,6 +61,9 @@
 #   #-  - OPENOBSERVE_GRPC_PUBLISHED_PORT -
 #   #-    OpenObserve gRPC port published to the host.
 #   OPENOBSERVE_GRPC_PUBLISHED_PORT=5081
+#   #-  - POSTGRES_PUBLISHED_PORT -
+#   #-    Postgres port published to the host for administration; OpenObserve uses private-net port 5432.
+#   POSTGRES_PUBLISHED_PORT=5432
 #   #@ OpenObserve Admin
 #   #-  - ZO_ROOT_USER_EMAIL -
 #   #-    Root user email.
@@ -65,6 +77,11 @@
 #   ZO_ALLOW_USER_DEFINED_SCHEMAS=false
 #   #-  - ZO_INGEST_ALLOWED_UPTO -
 #   #-    Maximum age in hours of historical data allowed for ingestion (default: 5).
+#   #-    Examples:
+#   #-        - 24   (1 day)
+#   #-        - 72   (3 days)
+#   #-        - 168  (1 week)
+#   #-        - 336  (2 weeks)
 #   ZO_INGEST_ALLOWED_UPTO=5
 #   #@ OpenObserve Storage Mode & Role
 #   #-  - ZO_LOCAL_MODE -
@@ -84,10 +101,11 @@
 #   #-    Bucket or container name used for OpenObserve data.
 #   ZO_S3_BUCKET_NAME=openobserve-data
 #   #-  - ZO_S3_SERVER_URL -
-#   #-    MinIO S3 API endpoint (default: http://minio:9000 on swarm-public).
-#   #-    Use http://<minio-stack>_minio:9000 if needed to identify a separately deployed MinIO service.
-#   #-    Leave empty for AWS S3 and Azure Blob.
-#   ZO_S3_SERVER_URL=http://minio:9000
+#   #-    Object storage endpoint URL; leave unset or empty for AWS S3 and Azure Blob (default: empty).
+#   #-    For MinIO, set the MinIO S3 API URL, e.g. http://minio:9000 on swarm-public.
+#   #-    Use http://<minio-stack>_minio:9000 for a separately deployed service, or its reachable API URL.
+#   #-    Use the S3 API endpoint, not the MinIO console URL.
+#   ZO_S3_SERVER_URL=
 #   #-  - ZO_S3_REGION_NAME -
 #   #-    MinIO region; match the region configured on the MinIO server (normally us-east-1).
 #   #-    For AWS S3, use the region containing the bucket, e.g. us-west-1. Optional for Azure Blob.
@@ -110,12 +128,34 @@
 #   #-    Azure storage account access key. Required when ZO_S3_PROVIDER=azure.
 #   AZURE_STORAGE_ACCOUNT_KEY=
 #   #@ OpenObserve Metadata Store
+#   #-    Deployment options:
+#   #-      SQLite (default): ZO_META_STORE=sqlite, POSTGRES_REPLICAS=0, ZO_META_POSTGRES_DSN empty.
+#   #-      Stack Postgres: ZO_META_STORE=postgres, POSTGRES_REPLICAS=1, and set POSTGRES_PASSWORD.
+#   #-        Set ZO_META_POSTGRES_DSN=postgres://openobserve:<password>@postgres:5432/openobserve.
+#   #-        Match the DSN username/database to POSTGRES_USER/POSTGRES_DB and prepare POSTGRES_DATA_PATH.
+#   #-      External Postgres: ZO_META_STORE=postgres, POSTGRES_REPLICAS=0, and set ZO_META_POSTGRES_DSN
+#   #-        to the external database URL reachable from OpenObserve; bundled Postgres settings are unused.
 #   #-  - ZO_META_STORE -
 #   #-    Metadata store backend. sqlite (local) or postgres (recommended).
 #   ZO_META_STORE=sqlite
 #   #-  - ZO_META_POSTGRES_DSN -
-#   #-    Postgres DSN. Example: postgres://openobserve:supersecret@<stack>_postgres:5432/openobserve
+#   #-    Leave empty for SQLite. For Postgres, supply the bundled or external database connection URL.
+#   #-    URL-encode reserved characters in the DSN username and password.
 #   ZO_META_POSTGRES_DSN=
+#   #@ Postgres Config
+#   #-  - POSTGRES_REPLICAS -
+#   #-    Bundled Postgres containers: 0 for SQLite or external Postgres (default), 1 for stack Postgres.
+#   POSTGRES_REPLICAS=0
+#   #-  - POSTGRES_USER -
+#   #-    Postgres user created when the data directory is first initialised.
+#   POSTGRES_USER=openobserve
+#   #-  - POSTGRES_PASSWORD -
+#   #-    Required when POSTGRES_REPLICAS=1. Set a password and use it in ZO_META_POSTGRES_DSN.
+#   #-    Leave empty when bundled Postgres is disabled.
+#   POSTGRES_PASSWORD=
+#   #-  - POSTGRES_DB -
+#   #-    Database created for OpenObserve metadata on first initialisation.
+#   POSTGRES_DB=openobserve
 #   #@ Enterprise Dex (OIDC)
 #   #-  - O2_DEX_SCOPES -
 #   #-    Scopes to be fetched from dex.
@@ -190,11 +230,19 @@
 #   > mkdir -p ${OPENOBSERVE_DATA_PATH:?}
 #   > sudo chown ${PUID:?}:${PGID:?} ${OPENOBSERVE_DATA_PATH:?}
 #   > echo && echo "$(cd "${OPENOBSERVE_DATA_PATH:?}" && pwd)" && ls -la ${OPENOBSERVE_DATA_PATH:?}
+#   > if [ "${POSTGRES_REPLICAS:-0}" = "1" ]; then
+#   >   mkdir -p ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   >   sudo chown 999:999 ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   >   echo && echo "$(cd "${POSTGRES_DATA_PATH:-./appdata/postgres}" && pwd)" && ls -la ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   > fi
 # <script_end>
 #
 # ---------------
 ---
 networks:
+  private-net:
+    driver: overlay
+    internal: true
   swarm-public:
     # NOTE: This network needs to be manually created and needs to
     #       be configured for manual container attachment
@@ -209,13 +257,14 @@ services:
   # OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.
   #
   openobserve:
-    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.50.0-rc3
+    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.50.0-rc3 #>convert_sha256
     user: ${PUID:-1000}:${PGID:-1000}
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 10s
+        window: 5s
       placement:
         constraints:
           - ${PLACEMENT_CONSTRAINT:?}
@@ -246,6 +295,7 @@ services:
 
     # NETWORK:
     networks:
+      - private-net
       - swarm-public
     ports:
       # HTTP
@@ -261,6 +311,10 @@ services:
 
     # ENVIRONMENT:
     environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: openobserve
+      service_version: 'v0.50.0-rc3'
       # Core application identity and auth.
       TZ: ${TZ:-Etc/UTC}
       ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
@@ -275,23 +329,23 @@ services:
       ZO_NODE_ROLE: ${ZO_NODE_ROLE:-all}
       ZO_LOCAL_MODE_STORAGE: ${ZO_LOCAL_MODE_STORAGE:-s3}
 
-      # Object storage backend (the header env defaults select MinIO):
+      # Object storage backend (MinIO by default):
       # - MinIO: set ZO_S3_PROVIDER=minio, ZO_S3_SERVER_URL=http://minio:9000,
       #   and use the ZO_S3_* credential fields. Both services must share swarm-public.
       # - AWS S3: set ZO_S3_PROVIDER=aws and use the ZO_S3_* credential fields.
       # - Azure Blob: set ZO_S3_PROVIDER=azure, leave ZO_S3_SERVER_URL empty,
       #   and provide AZURE_STORAGE_ACCOUNT_NAME / AZURE_STORAGE_ACCOUNT_KEY.
       ZO_S3_SERVER_URL: ${ZO_S3_SERVER_URL:-}
-      ZO_S3_REGION_NAME: ${ZO_S3_REGION_NAME:-}
+      ZO_S3_REGION_NAME: ${ZO_S3_REGION_NAME:-us-east-1}
       ZO_S3_ACCESS_KEY: ${ZO_S3_ACCESS_KEY:-}
       ZO_S3_SECRET_KEY: ${ZO_S3_SECRET_KEY:-}
-      ZO_S3_BUCKET_NAME: ${ZO_S3_BUCKET_NAME:-}
+      ZO_S3_BUCKET_NAME: ${ZO_S3_BUCKET_NAME:-openobserve-data}
       ZO_S3_BUCKET_PREFIX: ${ZO_S3_BUCKET_PREFIX:-}
-      ZO_S3_PROVIDER: ${ZO_S3_PROVIDER:-aws}
+      ZO_S3_PROVIDER: ${ZO_S3_PROVIDER:-minio}
       AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME:-}
       AZURE_STORAGE_ACCOUNT_KEY: ${AZURE_STORAGE_ACCOUNT_KEY:-}
 
-      # Metadata store. Postgres is the intended non-demo path here.
+      # Metadata store: SQLite by default, or explicitly configured bundled/external Postgres.
       ZO_META_STORE: ${ZO_META_STORE:-sqlite}
       ZO_META_POSTGRES_DSN: ${ZO_META_POSTGRES_DSN:-}
 
@@ -325,12 +379,13 @@ services:
   # Dex is optional here and is intended only for OpenObserve SSO on the same hostname.
   #
   openobserve-dex:
-    image: ghcr.io/dexidp/dex:latest
+    image: ghcr.io/dexidp/dex:latest #>convert_sha256
     deploy:
       replicas: ${DEX_REPLICAS:-0}
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 10s
+        window: 5s
       placement:
         constraints:
           - ${PLACEMENT_CONSTRAINT:?}
@@ -338,9 +393,13 @@ services:
         limits:
           memory: 256m
       labels:
+        #### -- Enable traefik router for this service
         - 'traefik.enable=${TRAEFIK_ROUTER_ENABLED:-false}'
+
+        #### -- Define traefik router for this service
         - 'traefik.http.services.openobserve-dex.loadbalancer.server.port=${DEX_HTTP_PORT:-5556}'
         - 'traefik.http.routers.openobserve-dex.entrypoints=web'
+        # Configure router domain and restrict routing to Dex endpoints
         - 'traefik.http.routers.openobserve-dex.rule=Host(`${TRAEFIK_DOMAIN:-openobserve.invalid}`) && PathPrefix(`/dex`)'
         # Prefer Dex for /dex requests over OpenObserve's hostname route (priority 10).
         - 'traefik.http.routers.openobserve-dex.priority=100'
@@ -467,6 +526,10 @@ services:
 
     # ENVIRONMENT:
     environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: openobserve-dex
+      service_version: 'latest'
       TZ: ${TZ:-Etc/UTC}
       TRAEFIK_DOMAIN: ${TRAEFIK_DOMAIN:-openobserve.invalid}
       DEX_ENABLED: ${DEX_ENABLED:-false}
@@ -486,3 +549,58 @@ services:
       - type: volume
         source: dex_data
         target: /var/dex
+
+  # -- PostgreSQL --
+  #
+  # Optional bundled metadata database. Enable with POSTGRES_REPLICAS=1 and ZO_META_STORE=postgres.
+  #
+  postgres:
+    image: postgres:17-bookworm #>convert_sha256
+    deploy:
+      replicas: ${POSTGRES_REPLICAS:-0}
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 5s
+      placement:
+        constraints:
+          - ${POSTGRES_PLACEMENT_CONSTRAINT:-${PLACEMENT_CONSTRAINT:?}}
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMLIMIT:-1g}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-openobserve} -d ${POSTGRES_DB:-openobserve}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # NETWORK:
+    networks:
+      - private-net
+    ports:
+      # PostgreSQL administration
+      - target: 5432
+        published: ${POSTGRES_PUBLISHED_PORT:-5432}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: postgres
+      service_version: '17-bookworm'
+      TZ: ${TZ:-Etc/UTC}
+      POSTGRES_USER: ${POSTGRES_USER:-openobserve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-openobserve}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:-./appdata/postgres}
+        target: /var/lib/postgresql/data

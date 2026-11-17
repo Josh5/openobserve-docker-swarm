@@ -1,55 +1,7 @@
 # OpenObserve on Docker Swarm
 
-## Development setup
+Docker Swarm templates for OpenObserve, with optional PostgreSQL and Dex services. One OpenObserve template supports SQLite, bundled PostgreSQL or external PostgreSQL, with or without Traefik and Dex.
 
-From the root of this project, run these commands:
+## Deployment
 
-1. Create the `***.env` files
-
-   ```
-   ./scripts/init-docker-compose-stack-env.sh ./docker-swarm-templates/docker-compose.minio.yml
-   ./scripts/init-docker-compose-stack-env.sh ./docker-swarm-templates/docker-compose.openobserve-stack.yml
-   ```
-
-2. Modify any additional config options in the `***.env` files.
-
-3. Run the dev compose stacks
-
-   ```
-   sudo docker compose \
-       -f ./docker-swarm-templates/docker-compose.minio.yml \
-       --env-file ./docker-swarm-templates/minio.env \
-       up -d
-
-   sudo docker compose \
-       -f ./docker-swarm-templates/docker-compose.openobserve-stack.yml \
-       --env-file ./docker-swarm-templates/openobserve-stack.env \
-       up -d
-   ```
-
-## PostgreSQL setup (optional)
-
-If you want to use PostgreSQL for the OpenObserve metadata store, create the env files
-and start the Postgres stack:
-
-```
-./scripts/init-docker-compose-stack-env.sh ./docker-swarm-templates/docker-compose.postgres.yml
-
-sudo docker compose \
-    -f ./docker-swarm-templates/docker-compose.postgres.yml \
-    --env-file ./docker-swarm-templates/postgres.env \
-    up -d
-```
-
-Then update `docker-swarm-templates/openobserve-stack.env`:
-
-```
-ZO_META_STORE=postgres
-ZO_META_POSTGRES_DSN=postgres://openobserve:supersecret@<stack>_postgres:5432/openobserve
-```
-
-## MinIO setup
-
-Before starting OpenObserve with S3 storage, create a bucket in MinIO that matches
-`ZO_S3_BUCKET_NAME` and create an access key that maps to `ZO_S3_ACCESS_KEY` and
-`ZO_S3_SECRET_KEY` in `docker-swarm-templates/openobserve-stack.env`.
+Follow the [deployment instructions](docker-swarm-templates/README.md). MinIO is deployed separately using the [MinIO template](docker-swarm-templates/docker-compose.minio.yml), or use an existing MinIO, AWS S3 or Azure Blob service.

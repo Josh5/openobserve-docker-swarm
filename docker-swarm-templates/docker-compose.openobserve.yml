@@ -284,10 +284,9 @@ services:
   # -- OpenObserve --
   #
   # OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.
-  # First staged upgrade from 0.50: back up metadata/data before applying 0.60.5.
   #
   openobserve:
-    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.60.5 #>convert_sha256
+    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.70.3 #>convert_sha256
     user: ${PUID:-1000}:${PGID:-1000}
     deploy:
       replicas: 1
@@ -344,7 +343,7 @@ services:
       # -- Fluentd Log Driver labels
       service_project: openobserve-docker-swarm
       service_name: openobserve
-      service_version: 'v0.60.5'
+      service_version: 'v0.70.3'
       # Core application identity and auth.
       TZ: ${TZ:-Etc/UTC}
       ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
@@ -391,7 +390,7 @@ services:
       O2_CALLBACK_URL: ${O2_CALLBACK_URL:-}
       O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
       O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email offline_access}
-      # Keep the group/role settings used by the 0.60 release line.
+      # Group claims control organisation and role mapping.
       O2_DEX_GROUP_ATTRIBUTE: ${O2_DEX_GROUP_ATTRIBUTE:-groups}
       O2_DEX_ROLE_ATTRIBUTE: ${O2_DEX_ROLE_ATTRIBUTE:-cn}
       O2_DEX_DEFAULT_ORG: ${O2_DEX_DEFAULT_ORG:-default}

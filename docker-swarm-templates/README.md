@@ -73,7 +73,7 @@ SSO is disabled by default. Set `DEX_ENABLED=true`, `DEX_CLIENT_ID`, `DEX_CLIENT
 
 ## Upgrading existing stacks
 
-Back up OpenObserve metadata and persistent data before upgrading. This template targets `0.60.5`, the first step from `0.50` in the [staged upgrade path](https://github.com/openobserve/openobserve/discussions/12356). Database schema migrations run during startup; rehearse this step on a restored backup and validate it before advancing to the next release line. Changing `ZO_META_STORE` also requires a separate metadata/file-list migration.
+Back up OpenObserve metadata and persistent data before upgrading. This template targets `0.70.3`, the next step from `0.60.x` in the [staged upgrade path](https://github.com/openobserve/openobserve/discussions/12356). Database schema migrations run during startup; rehearse this step on a restored backup and validate it before advancing to the next release line. Changing `ZO_META_STORE` also requires a separate metadata/file-list migration.
 
 PostgreSQL stays on major version 17. The [17.12 release notes](https://www.postgresql.org/docs/release/17.12/) require no dump/restore for an existing 17.x database, but describe conditional reindexing, C-extension rebuilds and taking a new full backup if using incremental backups. Review those notes against the deployed database before updating.
 

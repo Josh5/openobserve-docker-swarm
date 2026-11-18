@@ -69,7 +69,7 @@ Enable Traefik routing with `TRAEFIK_ROUTER_ENABLED=true` and set `TRAEFIK_DOMAI
 
 ### OpenObserve Dex
 
-Dex is disabled by default. Enable it with `DEX_ENABLED=true` and `DEX_REPLICAS=1`, then configure the client and connector credentials from the header. Dex requires public HTTPS and the upstream callback `https://<TRAEFIK_DOMAIN>/dex/callback`.
+SSO is disabled by default. Set `DEX_ENABLED=true`, `DEX_CLIENT_ID`, `DEX_CLIENT_SECRET` and the three URLs: `O2_DEX_BASE_URL` (Dex issuer), `O2_CALLBACK_URL` (OpenObserve `/web/cb`) and `O2_DEX_REDIRECT_URL` (OpenObserve `/config/redirect`, registered in Dex). For external Dex, keep `DEX_REPLICAS=0`. For bundled Dex, set `DEX_REPLICAS=1` and the connector credentials; use `https://<TRAEFIK_DOMAIN>/dex` as the issuer and register its `/callback` URL with the upstream provider.
 
 ## Upgrading existing stacks
 

@@ -6,7 +6,7 @@
 #
 # <config_start>
 #   #@ Placement
-#   #-    Configure a placement constraint to where the container will be run.
+#   #-    Placement constraint for OpenObserve and bundled Dex.
 #   #-    Examples:
 #   #-        - node.hostname==<hostname>
 #   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
@@ -19,11 +19,11 @@
 #   #-  - TRAEFIK_ROUTER_ENABLED -
 #   #-    Set true to enable Traefik routing for OpenObserve and the embedded Dex service.
 #   #-    Requires Traefik on swarm-public with the web entrypoint and the configured middleware.
-#   #-    Dex login also requires DEX_ENABLED=true and public HTTPS at TRAEFIK_DOMAIN.
+#   #-    Bundled Dex also requires DEX_ENABLED=true and public HTTPS at TRAEFIK_DOMAIN.
 #   #-    Set false to disable both Traefik routes; published host ports remain accessible.
 #   TRAEFIK_ROUTER_ENABLED=false
 #   #-  - TRAEFIK_DOMAIN -
-#   #-    Hostname for Traefik routing. With Dex enabled, use the public HTTPS hostname.
+#   #-    Hostname for Traefik routing; bundled Dex uses this public HTTPS hostname.
 #   TRAEFIK_DOMAIN=openobserve.local
 #   #-  - TRAEFIK_ROUTER_MIDDLEWARES -
 #   #-    A comma separated list of Traefik middleware to run in the configured router.
@@ -158,6 +158,19 @@
 #   #-    Database created for OpenObserve metadata on first initialisation.
 #   POSTGRES_DB=openobserve
 #   #@ Enterprise Dex (OIDC)
+#   #-    SSO requires O2_DEX_BASE_URL, O2_CALLBACK_URL and O2_DEX_REDIRECT_URL.
+#   #-  - O2_DEX_BASE_URL -
+#   #-    Required for SSO: full Dex issuer URL, e.g. https://auth.example.com/dex.
+#   #-    Bundled Dex issuer: https://<TRAEFIK_DOMAIN>/dex. For external Dex, use its issuer URL.
+#   O2_DEX_BASE_URL=
+#   #-  - O2_CALLBACK_URL -
+#   #-    Required for SSO: OpenObserve browser callback, https://<OpenObserve hostname>/web/cb.
+#   #-    Set explicitly; this URL is independent of the Dex issuer hostname.
+#   O2_CALLBACK_URL=
+#   #-  - O2_DEX_REDIRECT_URL -
+#   #-    Required for SSO: https://<OpenObserve hostname>/config/redirect.
+#   #-    Must match the redirect URI registered in Dex; used by the bundled Dex static client.
+#   O2_DEX_REDIRECT_URL=
 #   #-  - O2_DEX_SCOPES -
 #   #-    Scopes to be fetched from Dex; include groups when using group-based organisation mapping.
 #   O2_DEX_SCOPES=openid profile email groups offline_access
@@ -184,26 +197,28 @@
 #   O2_DEX_NATIVE_LOGIN_ENABLED=true
 #   #@ Embedded Dex Service
 #   #-  - DEX_ENABLED -
-#   #-    Enables OpenObserve SSO wiring and Dex startup; also set DEX_REPLICAS=1 to run Dex.
-#   #-    To disable Dex, set DEX_ENABLED=false and DEX_REPLICAS=0.
+#   #-    Enables OpenObserve SSO and bundled Dex startup; set DEX_REPLICAS=1 to run bundled Dex.
+#   #-    For external Dex, set DEX_ENABLED=true and DEX_REPLICAS=0, with its client credentials and URLs.
 #   DEX_ENABLED=false
 #   #-  - DEX_REPLICAS -
-#   #-    Number of Dex containers: 0 when disabled (default), or 1 with DEX_ENABLED=true.
+#   #-    Number of bundled Dex containers: 0 for external Dex or disabled SSO (default).
+#   #-    Set 1 with DEX_ENABLED=true to run bundled Dex.
 #   DEX_REPLICAS=0
 #   #-  - DEX_CLIENT_ID -
-#   #-    OpenObserve client id registered in Dex.
+#   #-    OpenObserve client id registered in bundled or external Dex.
 #   DEX_CLIENT_ID=
 #   #-  - DEX_CLIENT_SECRET -
-#   #-    OpenObserve client secret registered in Dex.
+#   #-    OpenObserve client secret registered in bundled or external Dex.
 #   DEX_CLIENT_SECRET=
 #   #-  - DEX_HTTP_PORT -
-#   #-    Dex HTTP port inside container.
+#   #-    Dex HTTP listener and published host port; use this port for the ALB HTTP target group.
+#   #-    Published in host mode on the Swarm node running Dex; independent of Traefik routing.
 #   DEX_HTTP_PORT=5556
 #   #-  - DEX_GRPC_PORT -
-#   #-    Dex gRPC port inside container.
+#   #-    Dex gRPC listener and published host port on the Swarm node running Dex.
 #   DEX_GRPC_PORT=5557
 #   #-  - DEX_CONNECTOR -
-#   #-    Select connector: google or gitlab.
+#   #-    Selects one bundled Dex connector: google or gitlab.
 #   DEX_CONNECTOR=google
 #   #-  - DEX_CONNECTOR_CLIENT_ID -
 #   #-    Upstream OIDC client id used by Dex against Google or GitLab.
@@ -211,6 +226,10 @@
 #   #-  - DEX_CONNECTOR_CLIENT_SECRET -
 #   #-    Upstream OIDC client secret used by Dex against Google or GitLab.
 #   DEX_CONNECTOR_CLIENT_SECRET=
+#   #-  - DEX_CONNECTOR_REDIRECT_URI -
+#   #-    Callback URL registered with the Google or GitLab application.
+#   #-    Leave empty to use O2_DEX_BASE_URL followed by /callback.
+#   DEX_CONNECTOR_REDIRECT_URI=
 #   #-  - DEX_CONNECTOR_OIDC_SCOPES -
 #   #-    Upstream scopes for the Google OIDC connector; leave empty for openid profile email.
 #   #-    The GitLab connector selects its required scopes internally and does not accept this setting.
@@ -360,9 +379,9 @@ services:
       O2_DEX_ENABLED: ${DEX_ENABLED:-false}
       O2_DEX_CLIENT_ID: ${DEX_CLIENT_ID:-}
       O2_DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET:-}
-      O2_DEX_BASE_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/dex
-      O2_CALLBACK_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/web/cb
-      O2_DEX_REDIRECT_URL: https://${TRAEFIK_DOMAIN:-openobserve.invalid}/config/redirect
+      O2_DEX_BASE_URL: ${O2_DEX_BASE_URL:-}
+      O2_CALLBACK_URL: ${O2_CALLBACK_URL:-}
+      O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
       O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email groups offline_access}
       # Keep the group/role settings used by the 0.60 release line.
       O2_DEX_GROUP_ATTRIBUTE: ${O2_DEX_GROUP_ATTRIBUTE:-groups}
@@ -381,10 +400,12 @@ services:
 
   # -- Dex --
   #
-  # Dex is optional here and is intended only for OpenObserve SSO on the same hostname.
+  # Optional Dex identity provider for OpenObserve SSO, accessible through Traefik or published host ports.
   #
   openobserve-dex:
-    image: ghcr.io/dexidp/dex:v2.46.1 #>convert_sha256
+    # NOTE: Dex 2.46.1 has SSO issues with OpenObserve 0.60.5+; pin the working 2.47 development build.
+    # Revise this pin to use its stable release tag when that release is available.
+    image: ghcr.io/dexidp/dex@sha256:fcd477aad23db856ec56652afb7f83fe249cbbb8fe11c43d8a38c7ba699e1a9d
     deploy:
       replicas: ${DEX_REPLICAS:-0}
       restart_policy:
@@ -421,10 +442,16 @@ services:
           done
         fi
 
+        : "$${DEX_CLIENT_ID:?Set DEX_CLIENT_ID for bundled Dex}"
+        : "$${DEX_CLIENT_SECRET:?Set DEX_CLIENT_SECRET for bundled Dex}"
+        : "$${DEX_CONNECTOR_CLIENT_ID:?Set DEX_CONNECTOR_CLIENT_ID for bundled Dex}"
+        : "$${DEX_CONNECTOR_CLIENT_SECRET:?Set DEX_CONNECTOR_CLIENT_SECRET for bundled Dex}"
+
         mkdir -p /etc/dex /var/dex
         DEX_CONNECTOR="$${DEX_CONNECTOR:-google}"
-        DEX_ISSUER_URL="https://$${TRAEFIK_DOMAIN}/dex"
-        DEX_CONNECTOR_REDIRECT_URI="https://$${TRAEFIK_DOMAIN}/dex/callback"
+        DEX_ISSUER_URL="$${O2_DEX_BASE_URL:?Set O2_DEX_BASE_URL for bundled Dex}"
+        DEX_CONNECTOR_REDIRECT_URI="$${DEX_CONNECTOR_REDIRECT_URI:-$${DEX_ISSUER_URL%/}/callback}"
+        OPENOBSERVE_REDIRECT_URI="$${O2_DEX_REDIRECT_URL:?Set O2_DEX_REDIRECT_URL for bundled Dex}"
 
         if [ -z "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
           DEX_CONNECTOR_OIDC_SCOPES="openid profile email"
@@ -467,7 +494,7 @@ services:
         staticClients:
         - id: $${DEX_CLIENT_ID}
           redirectURIs:
-          - https://$${TRAEFIK_DOMAIN}/config/redirect
+          - $${OPENOBSERVE_REDIRECT_URI}
           name: OpenObserve
           secret: $${DEX_CLIENT_SECRET}
         connectors:
@@ -505,7 +532,7 @@ services:
         staticClients:
         - id: $${DEX_CLIENT_ID}
           redirectURIs:
-          - https://$${TRAEFIK_DOMAIN}/config/redirect
+          - $${OPENOBSERVE_REDIRECT_URI}
           name: OpenObserve
           secret: $${DEX_CLIENT_SECRET}
         connectors:
@@ -529,23 +556,37 @@ services:
     # NETWORK:
     networks:
       - swarm-public
+    ports:
+      # HTTP / ALB backend
+      - target: ${DEX_HTTP_PORT:-5556}
+        published: ${DEX_HTTP_PORT:-5556}
+        protocol: tcp
+        mode: host
+      # gRPC
+      - target: ${DEX_GRPC_PORT:-5557}
+        published: ${DEX_GRPC_PORT:-5557}
+        protocol: tcp
+        mode: host
 
     # ENVIRONMENT:
     environment:
       # -- Fluentd Log Driver labels
       service_project: openobserve-docker-swarm
       service_name: openobserve-dex
-      service_version: 'v2.46.1'
+      service_version: 'v2.47.0-20261117201225-99754273'
       TZ: ${TZ:-Etc/UTC}
       TRAEFIK_DOMAIN: ${TRAEFIK_DOMAIN:-openobserve.invalid}
       DEX_ENABLED: ${DEX_ENABLED:-false}
       DEX_CLIENT_ID: ${DEX_CLIENT_ID:-}
       DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET:-}
+      O2_DEX_BASE_URL: ${O2_DEX_BASE_URL:-}
+      O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
       DEX_HTTP_PORT: ${DEX_HTTP_PORT:-5556}
       DEX_GRPC_PORT: ${DEX_GRPC_PORT:-5557}
       DEX_CONNECTOR: ${DEX_CONNECTOR:-google}
       DEX_CONNECTOR_CLIENT_ID: ${DEX_CONNECTOR_CLIENT_ID:-}
       DEX_CONNECTOR_CLIENT_SECRET: ${DEX_CONNECTOR_CLIENT_SECRET:-}
+      DEX_CONNECTOR_REDIRECT_URI: ${DEX_CONNECTOR_REDIRECT_URI:-}
       DEX_CONNECTOR_OIDC_SCOPES: ${DEX_CONNECTOR_OIDC_SCOPES:-}
       DEX_CONNECTOR_GROUPS: ${DEX_CONNECTOR_GROUPS:-}
       GITLAB_BASE_URL: ${GITLAB_BASE_URL:-https://gitlab.com}

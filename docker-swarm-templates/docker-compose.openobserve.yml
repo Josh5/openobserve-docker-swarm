@@ -18,7 +18,7 @@
 #   #@ Traefik Config
 #   #-  - TRAEFIK_ROUTER_ENABLED -
 #   #-    Set true to enable Traefik routing for OpenObserve and the embedded Dex service.
-#   #-    Requires Traefik on swarm-public with the web entrypoint and the configured middleware.
+#   #-    Requires Traefik on swarm-public with the web entrypoint.
 #   #-    Bundled Dex also requires DEX_ENABLED=true and public HTTPS at TRAEFIK_DOMAIN.
 #   #-    Set false to disable both Traefik routes; published host ports remain accessible.
 #   TRAEFIK_ROUTER_ENABLED=false
@@ -26,8 +26,14 @@
 #   #-    Hostname for Traefik routing; bundled Dex uses this public HTTPS hostname.
 #   TRAEFIK_DOMAIN=openobserve.local
 #   #-  - TRAEFIK_ROUTER_MIDDLEWARES -
-#   #-    A comma separated list of Traefik middleware to run in the configured router.
-#   TRAEFIK_ROUTER_MIDDLEWARES=compress
+#   #-    Optional comma separated middleware names for the OpenObserve router; empty applies none.
+#   #-    Suggestions: 
+#   #-        - compress (Compress) for response compression
+#   #-        - security-headers (Headers) for security headers;
+#   #-        - ip-allowlist (IPAllowList) to restrict access to trusted user and log collector networks.
+#   #-    Ensure you define the selected middleware in Traefik before referencing it here.
+#   #-    Example: compress,security-headers
+#   TRAEFIK_ROUTER_MIDDLEWARES=
 #   #@ Host Config
 #   #-  - TZ -
 #   #-    The timezone.
@@ -305,7 +311,7 @@ services:
         # Configure router domain
         - 'traefik.http.routers.openobserve.rule=Host(`${TRAEFIK_DOMAIN:-openobserve.invalid}`)'
         # Enable custom middleware on this service
-        - 'traefik.http.routers.openobserve.middlewares=${TRAEFIK_ROUTER_MIDDLEWARES:-compress}'
+        - 'traefik.http.routers.openobserve.middlewares=${TRAEFIK_ROUTER_MIDDLEWARES:-}'
 
         #### -- Define homepage configuration
         - 'homepage.group=Observability'

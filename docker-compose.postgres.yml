@@ -1,0 +1,113 @@
+# ---------------
+# PostgreSQL
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   #-    Configure a placement constraint to where the container will be run.
+#   #-    Examples:
+#   #-        - node.hostname==<hostname>
+#   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
+#   #-        - node.role!=manager
+#   POSTGRES_PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #@ Host Config
+#   #-  - TZ -
+#   #-    The timezone.
+#   TZ=Etc/UTC
+#   #@ Resource Limits
+#   #-  - POSTGRES_MEMLIMIT -
+#   #-    Limit Postgres container memory.
+#   POSTGRES_MEMLIMIT=1g
+#   #@ Container Paths
+#   #-  - POSTGRES_DATA_PATH -
+#   #-    The path to the Postgres data directory
+#   POSTGRES_DATA_PATH=./appdata/postgres
+#   #@ Postgres Config
+#   #-  - POSTGRES_USER -
+#   #-    The username for Postgres
+#   POSTGRES_USER=postgres
+#   #-  - POSTGRES_PASSWORD -
+#   #-    The password for Postgres
+#   POSTGRES_PASSWORD=supersecret
+#   #-  - POSTGRES_DB -
+#   #-    The database created on first initialisation.
+#   POSTGRES_DB=postgres
+#   #-  - POSTGRES_PUBLISHED_PORT -
+#   #-    The Postgres port published to the host
+#   POSTGRES_PUBLISHED_PORT=5432
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${POSTGRES_DATA_PATH:?}
+#   > sudo chown 999:999 ${POSTGRES_DATA_PATH:?}
+#   > echo && echo "$(cd "${POSTGRES_DATA_PATH:?}" && pwd)" && ls -la ${POSTGRES_DATA_PATH:?}
+# <script_end>
+#
+# ---------------
+---
+version: '3.8'
+
+networks:
+  swarm-public:
+    external: true
+
+services:
+  # -- PostgreSQL --
+  #
+  # PostgreSQL is a relational database with persistent storage on the selected Swarm node.
+  #
+  postgres:
+    image: library/postgres@sha256:40865bc877a289da75963d97d72b59633f639fc5af7a4e856bfa3714cae5b536
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 5s
+      placement:
+        constraints:
+          - ${POSTGRES_PLACEMENT_CONSTRAINT:?}
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMLIMIT:-1g}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # NETWORK:
+    networks:
+      - swarm-public
+    ports:
+      # PostgreSQL administration
+      - target: 5432
+        published: ${POSTGRES_PUBLISHED_PORT:-5432}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      # -- Fluentd Log Driver labels
+      service_project: postgres
+      service_name: postgres
+      service_version: '17.12-bookworm'
+      TZ: ${TZ:-Etc/UTC}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:?}
+        target: /var/lib/postgresql/data

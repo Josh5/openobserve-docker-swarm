@@ -178,8 +178,10 @@
 #   #-    Must match the redirect URI registered in Dex; used by the bundled Dex static client.
 #   O2_DEX_REDIRECT_URL=
 #   #-  - O2_DEX_SCOPES -
-#   #-    Scopes to be fetched from Dex; include groups when using group-based organisation mapping.
-#   O2_DEX_SCOPES=openid profile email groups offline_access
+#   #-    Scopes requested from Dex for SSO.
+#   #-    NOTE: Add 'groups' only for intentional group-based organisation mapping.
+#   #-    Group claims can affect organisation membership when group mapping is configured.
+#   O2_DEX_SCOPES=openid profile email offline_access
 #   #-  - O2_DEX_GROUP_ATTRIBUTE -
 #   #-    Maps user to OpenObserve organization.
 #   O2_DEX_GROUP_ATTRIBUTE=groups
@@ -388,7 +390,7 @@ services:
       O2_DEX_BASE_URL: ${O2_DEX_BASE_URL:-}
       O2_CALLBACK_URL: ${O2_CALLBACK_URL:-}
       O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
-      O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email groups offline_access}
+      O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email offline_access}
       # Keep the group/role settings used by the 0.60 release line.
       O2_DEX_GROUP_ATTRIBUTE: ${O2_DEX_GROUP_ATTRIBUTE:-groups}
       O2_DEX_ROLE_ATTRIBUTE: ${O2_DEX_ROLE_ATTRIBUTE:-cn}

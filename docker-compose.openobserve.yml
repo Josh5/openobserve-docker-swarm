@@ -1,0 +1,660 @@
+# ---------------
+# OpenObserve
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   #-    Placement constraint for OpenObserve and bundled Dex.
+#   #-    Examples:
+#   #-        - node.hostname==<hostname>
+#   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
+#   #-        - node.role!=manager
+#   PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #-  - POSTGRES_PLACEMENT_CONSTRAINT -
+#   #-    Place Postgres on the node that holds POSTGRES_DATA_PATH. Configure separately from PLACEMENT_CONSTRAINT.
+#   POSTGRES_PLACEMENT_CONSTRAINT=engine.labels.node-type==swarm-monitor
+#   #@ Traefik Config
+#   #-  - TRAEFIK_ROUTER_ENABLED -
+#   #-    Set true to enable Traefik routing for OpenObserve and the embedded Dex service.
+#   #-    Requires Traefik on swarm-public with the web entrypoint.
+#   #-    Bundled Dex also requires DEX_ENABLED=true and public HTTPS at TRAEFIK_DOMAIN.
+#   #-    Set false to disable both Traefik routes; published host ports remain accessible.
+#   TRAEFIK_ROUTER_ENABLED=false
+#   #-  - TRAEFIK_DOMAIN -
+#   #-    Hostname for Traefik routing; bundled Dex uses this public HTTPS hostname.
+#   TRAEFIK_DOMAIN=openobserve.local
+#   #-  - TRAEFIK_ROUTER_MIDDLEWARES -
+#   #-    Optional comma separated middleware names for the OpenObserve router; empty applies none.
+#   #-    Suggestions: 
+#   #-        - compress (Compress) for response compression
+#   #-        - security-headers (Headers) for security headers;
+#   #-        - ip-allowlist (IPAllowList) to restrict access to trusted user and log collector networks.
+#   #-    Ensure you define the selected middleware in Traefik before referencing it here.
+#   #-    Example: compress,security-headers
+#   TRAEFIK_ROUTER_MIDDLEWARES=
+#   #@ Host Config
+#   #-  - TZ -
+#   #-    The timezone.
+#   TZ=Etc/UTC
+#   #-  - PUID -
+#   #-    User to run services as.
+#   PUID=1000
+#   #-  - PGID -
+#   #-    Group to run services as.
+#   PGID=1000
+#   #@ Resource Limits
+#   #-  - OPENOBSERVE_MEMLIMIT -
+#   #-    Limit OpenObserve container memory.
+#   OPENOBSERVE_MEMLIMIT=4g
+#   #-  - POSTGRES_MEMLIMIT -
+#   #-    Limit Postgres container memory.
+#   POSTGRES_MEMLIMIT=1g
+#   #@ Container Paths
+#   #-  - OPENOBSERVE_DATA_PATH -
+#   #-    The path to the OpenObserve data directory (WAL, cache, local DB).
+#   OPENOBSERVE_DATA_PATH=./appdata/openobserve
+#   #-  - POSTGRES_DATA_PATH -
+#   #-    Persistent Postgres data directory on the selected node.
+#   POSTGRES_DATA_PATH=./appdata/postgres
+#   #@ Ports
+#   #-  - OPENOBSERVE_HTTP_PUBLISHED_PORT -
+#   #-    OpenObserve HTTP port published to the host (default: 5080).
+#   #-    The container and Traefik backend always use port 5080; this setting changes only the host port.
+#   #-    The host port remains accessible when TRAEFIK_ROUTER_ENABLED=false.
+#   OPENOBSERVE_HTTP_PUBLISHED_PORT=5080
+#   #-  - OPENOBSERVE_GRPC_PUBLISHED_PORT -
+#   #-    OpenObserve gRPC port published to the host.
+#   OPENOBSERVE_GRPC_PUBLISHED_PORT=5081
+#   #-  - POSTGRES_PUBLISHED_PORT -
+#   #-    Postgres port published to the host for administration; OpenObserve uses private-net port 5432.
+#   POSTGRES_PUBLISHED_PORT=5432
+#   #@ OpenObserve Admin
+#   #-  - ZO_ROOT_USER_EMAIL -
+#   #-    Root user email.
+#   ZO_ROOT_USER_EMAIL=admin@example.com
+#   #-  - ZO_ROOT_USER_PASSWORD -
+#   #-    Root user password.
+#   ZO_ROOT_USER_PASSWORD=ChangeMe123!
+#   #@ OpenObserve Schema & Ingestion Settings
+#   #-  - ZO_ALLOW_USER_DEFINED_SCHEMAS -
+#   #-    If true, allows users to define schemas for streams.
+#   ZO_ALLOW_USER_DEFINED_SCHEMAS=false
+#   #-  - ZO_INGEST_ALLOWED_UPTO -
+#   #-    Maximum age in hours of historical data allowed for ingestion (default: 5).
+#   #-    Examples:
+#   #-        - 24   (1 day)
+#   #-        - 72   (3 days)
+#   #-        - 168  (1 week)
+#   #-        - 336  (2 weeks)
+#   ZO_INGEST_ALLOWED_UPTO=5
+#   #@ OpenObserve Storage Mode & Role
+#   #-  - ZO_LOCAL_MODE -
+#   #-    true for single-node; set false for cluster mode.
+#   ZO_LOCAL_MODE=true
+#   #-  - ZO_NODE_ROLE -
+#   #-    Set OpenObserve node role: all | compact | querier | ingester | compactor.
+#   ZO_NODE_ROLE=all
+#   #-  - ZO_LOCAL_MODE_STORAGE -
+#   #-    disk or s3. If using MinIO/S3 set to s3. With s3, stream data goes to object storage and local disk holds WAL/cache.
+#   ZO_LOCAL_MODE_STORAGE=s3
+#   #@ OpenObserve Object Storage
+#   #-  - ZO_S3_PROVIDER -
+#   #-    Storage provider. Use 'minio' for MinIO (default), 'aws' for AWS S3, or 'azure' for Azure Blob.
+#   ZO_S3_PROVIDER=minio
+#   #-  - ZO_S3_BUCKET_NAME -
+#   #-    Bucket or container name used for OpenObserve data.
+#   ZO_S3_BUCKET_NAME=openobserve-data
+#   #-  - ZO_S3_SERVER_URL -
+#   #-    Object storage endpoint URL; leave unset or empty for AWS S3 and Azure Blob (default: empty).
+#   #-    For MinIO, set the MinIO S3 API URL, e.g. http://minio:9000 on swarm-public.
+#   #-    Use http://<minio-stack>_minio:9000 for a separately deployed service, or its reachable API URL.
+#   #-    Use the S3 API endpoint, not the MinIO console URL.
+#   ZO_S3_SERVER_URL=
+#   #-  - ZO_S3_REGION_NAME -
+#   #-    MinIO region; match the region configured on the MinIO server (normally us-east-1).
+#   #-    For AWS S3, use the region containing the bucket, e.g. us-west-1. Optional for Azure Blob.
+#   ZO_S3_REGION_NAME=us-east-1
+#   #-  - ZO_S3_ACCESS_KEY -
+#   #-    MinIO access key for a user or service account with access to the OpenObserve bucket.
+#   #-    For AWS S3, use the IAM access key ID associated with the bucket access policy.
+#   ZO_S3_ACCESS_KEY=openobserve
+#   #-  - ZO_S3_SECRET_KEY -
+#   #-    MinIO secret key paired with ZO_S3_ACCESS_KEY. Replace the example before deploying.
+#   #-    For AWS S3, use the secret access key paired with the IAM access key ID.
+#   ZO_S3_SECRET_KEY=supersecret
+#   #-  - ZO_S3_BUCKET_PREFIX -
+#   #-    Optional prefix, e.g. openobserve/
+#   ZO_S3_BUCKET_PREFIX=
+#   #-  - AZURE_STORAGE_ACCOUNT_NAME -
+#   #-    Azure storage account name. Required when ZO_S3_PROVIDER=azure.
+#   #-    Clear ZO_S3_ACCESS_KEY and ZO_S3_SECRET_KEY when using the AZURE_STORAGE_* credentials.
+#   AZURE_STORAGE_ACCOUNT_NAME=
+#   #-  - AZURE_STORAGE_ACCOUNT_KEY -
+#   #-    Azure storage account access key. Required when ZO_S3_PROVIDER=azure.
+#   AZURE_STORAGE_ACCOUNT_KEY=
+#   #@ OpenObserve Metadata Store
+#   #-    Deployment options:
+#   #-      SQLite (default): ZO_META_STORE=sqlite, POSTGRES_REPLICAS=0, ZO_META_POSTGRES_DSN empty.
+#   #-      Stack Postgres: ZO_META_STORE=postgres, POSTGRES_REPLICAS=1, and set POSTGRES_PASSWORD.
+#   #-        Set ZO_META_POSTGRES_DSN=postgres://openobserve:<password>@postgres:5432/openobserve.
+#   #-        Match the DSN username/database to POSTGRES_USER/POSTGRES_DB and prepare POSTGRES_DATA_PATH.
+#   #-      External Postgres: ZO_META_STORE=postgres, POSTGRES_REPLICAS=0, and set ZO_META_POSTGRES_DSN
+#   #-        to the external database URL reachable from OpenObserve; bundled Postgres settings are unused.
+#   #-  - ZO_META_STORE -
+#   #-    Metadata store backend. sqlite (local) or postgres (recommended).
+#   ZO_META_STORE=sqlite
+#   #-  - ZO_META_POSTGRES_DSN -
+#   #-    Leave empty for SQLite. For Postgres, supply the bundled or external database connection URL.
+#   #-    URL-encode reserved characters in the DSN username and password.
+#   ZO_META_POSTGRES_DSN=
+#   #@ Postgres Config
+#   #-  - POSTGRES_REPLICAS -
+#   #-    Bundled Postgres containers: 0 for SQLite or external Postgres (default), 1 for stack Postgres.
+#   POSTGRES_REPLICAS=0
+#   #-  - POSTGRES_USER -
+#   #-    Postgres user created when the data directory is first initialised.
+#   POSTGRES_USER=openobserve
+#   #-  - POSTGRES_PASSWORD -
+#   #-    Required when POSTGRES_REPLICAS=1. Set a password and use it in ZO_META_POSTGRES_DSN.
+#   #-    Leave empty when bundled Postgres is disabled.
+#   POSTGRES_PASSWORD=
+#   #-  - POSTGRES_DB -
+#   #-    Database created for OpenObserve metadata on first initialisation.
+#   POSTGRES_DB=openobserve
+#   #@ Enterprise Dex (OIDC)
+#   #-    SSO requires O2_DEX_BASE_URL, O2_CALLBACK_URL and O2_DEX_REDIRECT_URL.
+#   #-  - O2_DEX_BASE_URL -
+#   #-    Required for SSO: full Dex issuer URL, e.g. https://auth.example.com/dex.
+#   #-    Bundled Dex issuer: https://<TRAEFIK_DOMAIN>/dex. For external Dex, use its issuer URL.
+#   O2_DEX_BASE_URL=
+#   #-  - O2_CALLBACK_URL -
+#   #-    Required for SSO: OpenObserve browser callback, https://<OpenObserve hostname>/web/cb.
+#   #-    Set explicitly; this URL is independent of the Dex issuer hostname.
+#   O2_CALLBACK_URL=
+#   #-  - O2_DEX_REDIRECT_URL -
+#   #-    Required for SSO: https://<OpenObserve hostname>/config/redirect.
+#   #-    Must match the redirect URI registered in Dex; used by the bundled Dex static client.
+#   O2_DEX_REDIRECT_URL=
+#   #-  - O2_DEX_SCOPES -
+#   #-    Scopes requested from Dex for SSO.
+#   #-    NOTE: Add 'groups' only for intentional group-based organisation mapping.
+#   #-    Group claims can affect organisation membership when group mapping is configured.
+#   O2_DEX_SCOPES=openid profile email offline_access
+#   #-  - O2_DEX_GROUP_ATTRIBUTE -
+#   #-    Maps user to OpenObserve organization.
+#   O2_DEX_GROUP_ATTRIBUTE=groups
+#   #-  - O2_DEX_ROLE_ATTRIBUTE -
+#   #-    User's role in the organization.
+#   O2_DEX_ROLE_ATTRIBUTE=cn
+#   #-  - O2_DEX_DEFAULT_ORG -
+#   #-    Default organization for users not belonging to any group in ldap.
+#   O2_DEX_DEFAULT_ORG=default
+#   #-  - O2_DEX_TOKEN_EP_SUFFIX -
+#   #-    Suffix for dex token endpoint.
+#   O2_DEX_TOKEN_EP_SUFFIX=/token
+#   #-  - O2_DEX_KEYS_EP_SUFFIX -
+#   #-    Suffix for dex keys endpoint.
+#   O2_DEX_KEYS_EP_SUFFIX=/keys
+#   #-  - O2_DEX_AUTH_EP_SUFFIX -
+#   #-    Suffix for dex authentication endpoint.
+#   O2_DEX_AUTH_EP_SUFFIX=/auth
+#   #-  - O2_DEX_NATIVE_LOGIN_ENABLED -
+#   #-    Indicates if native dex login is enabled.
+#   O2_DEX_NATIVE_LOGIN_ENABLED=true
+#   #@ Embedded Dex Service
+#   #-  - DEX_ENABLED -
+#   #-    Enables OpenObserve SSO and bundled Dex startup; set DEX_REPLICAS=1 to run bundled Dex.
+#   #-    For external Dex, set DEX_ENABLED=true and DEX_REPLICAS=0, with its client credentials and URLs.
+#   DEX_ENABLED=false
+#   #-  - DEX_REPLICAS -
+#   #-    Number of bundled Dex containers: 0 for external Dex or disabled SSO (default).
+#   #-    Set 1 with DEX_ENABLED=true to run bundled Dex.
+#   DEX_REPLICAS=0
+#   #-  - DEX_CLIENT_ID -
+#   #-    OpenObserve client id registered in bundled or external Dex.
+#   DEX_CLIENT_ID=
+#   #-  - DEX_CLIENT_SECRET -
+#   #-    OpenObserve client secret registered in bundled or external Dex.
+#   DEX_CLIENT_SECRET=
+#   #-  - DEX_HTTP_PORT -
+#   #-    Dex HTTP listener and published host port; use this port for the ALB HTTP target group.
+#   #-    Published in host mode on the Swarm node running Dex; independent of Traefik routing.
+#   DEX_HTTP_PORT=5556
+#   #-  - DEX_GRPC_PORT -
+#   #-    Dex gRPC listener and published host port on the Swarm node running Dex.
+#   DEX_GRPC_PORT=5557
+#   #-  - DEX_CONNECTOR -
+#   #-    Selects one bundled Dex connector: google or gitlab.
+#   DEX_CONNECTOR=google
+#   #-  - DEX_CONNECTOR_CLIENT_ID -
+#   #-    Upstream OIDC client id used by Dex against Google or GitLab.
+#   DEX_CONNECTOR_CLIENT_ID=
+#   #-  - DEX_CONNECTOR_CLIENT_SECRET -
+#   #-    Upstream OIDC client secret used by Dex against Google or GitLab.
+#   DEX_CONNECTOR_CLIENT_SECRET=
+#   #-  - DEX_CONNECTOR_REDIRECT_URI -
+#   #-    Callback URL registered with the Google or GitLab application.
+#   #-    Leave empty to use O2_DEX_BASE_URL followed by /callback.
+#   DEX_CONNECTOR_REDIRECT_URI=
+#   #-  - DEX_CONNECTOR_OIDC_SCOPES -
+#   #-    Upstream scopes for the Google OIDC connector; leave empty for openid profile email.
+#   #-    The GitLab connector selects its required scopes internally and does not accept this setting.
+#   DEX_CONNECTOR_OIDC_SCOPES=
+#   #-  - DEX_CONNECTOR_GROUPS -
+#   #-    Optional space-separated GitLab groups that are allowed to log in through Dex.
+#   #-    Only used when DEX_CONNECTOR=gitlab.
+#   DEX_CONNECTOR_GROUPS=
+#   #-  - GITLAB_BASE_URL -
+#   #-    GitLab base URL, e.g. https://gitlab.com. Only used when DEX_CONNECTOR=gitlab.
+#   GITLAB_BASE_URL=https://gitlab.com
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${OPENOBSERVE_DATA_PATH:?}
+#   > sudo chown ${PUID:?}:${PGID:?} ${OPENOBSERVE_DATA_PATH:?}
+#   > echo && echo "$(cd "${OPENOBSERVE_DATA_PATH:?}" && pwd)" && ls -la ${OPENOBSERVE_DATA_PATH:?}
+#   > if [ "${POSTGRES_REPLICAS:-0}" = "1" ]; then
+#   >   mkdir -p ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   >   sudo chown 999:999 ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   >   echo && echo "$(cd "${POSTGRES_DATA_PATH:-./appdata/postgres}" && pwd)" && ls -la ${POSTGRES_DATA_PATH:-./appdata/postgres}
+#   > fi
+# <script_end>
+#
+# ---------------
+---
+networks:
+  private-net:
+    driver: overlay
+    driver_opts:
+      encrypted: ''
+  swarm-public:
+    # NOTE: This network needs to be manually created and needs to
+    #       be configured for manual container attachment
+    external: true
+
+volumes:
+  dex_data:
+
+services:
+  # -- OpenObserve --
+  #
+  # OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.
+  #
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve-enterprise:v0.70.3 #>convert_sha256
+    user: ${PUID:-1000}:${PGID:-1000}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 5s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT:?}
+      resources:
+        limits:
+          memory: ${OPENOBSERVE_MEMLIMIT:-4g}
+      labels:
+        #### -- Enable traefik router for this service
+        - 'traefik.enable=${TRAEFIK_ROUTER_ENABLED:-false}'
+
+        #### -- Define traefik router for this service
+        - 'traefik.http.services.openobserve.loadbalancer.server.port=5080'
+        - 'traefik.http.routers.openobserve.entrypoints=web'
+        # Keep the general hostname route below Dex's /dex route (priority 100).
+        - 'traefik.http.routers.openobserve.priority=10'
+        # Configure router domain
+        - 'traefik.http.routers.openobserve.rule=Host(`${TRAEFIK_DOMAIN:-openobserve.invalid}`)'
+        # Enable custom middleware on this service
+        - 'traefik.http.routers.openobserve.middlewares=${TRAEFIK_ROUTER_MIDDLEWARES:-}'
+
+        #### -- Define homepage configuration
+        - 'homepage.group=Observability'
+        - 'homepage.name=OpenObserve'
+        - 'homepage.weight=1'
+        - 'homepage.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/openobserve.png'
+        - 'homepage.description=OpenObserve is a self-hosted, cloud-native observability platform for logs, metrics, and traces.'
+        - 'homepage.href=http://${TRAEFIK_DOMAIN:-openobserve.local}/'
+
+    # NETWORK:
+    networks:
+      - private-net
+      - swarm-public
+    ports:
+      # HTTP
+      - target: 5080
+        published: ${OPENOBSERVE_HTTP_PUBLISHED_PORT:-5080}
+        protocol: tcp
+        mode: host
+      # gRPC
+      - target: 5081
+        published: ${OPENOBSERVE_GRPC_PUBLISHED_PORT:-5081}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: openobserve
+      service_version: 'v0.70.3'
+      # Core application identity and auth.
+      TZ: ${TZ:-Etc/UTC}
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:?}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:?}
+
+      # Single-node defaults are fine for the current swarm template.
+      # If you later move this toward a multi-node OpenObserve topology,
+      # revisit both the local-mode flag and the metadata-store settings below.
+      ZO_ALLOW_USER_DEFINED_SCHEMAS: ${ZO_ALLOW_USER_DEFINED_SCHEMAS:-false}
+      ZO_INGEST_ALLOWED_UPTO: ${ZO_INGEST_ALLOWED_UPTO:-5}
+      ZO_LOCAL_MODE: ${ZO_LOCAL_MODE:-true}
+      ZO_NODE_ROLE: ${ZO_NODE_ROLE:-all}
+      ZO_LOCAL_MODE_STORAGE: ${ZO_LOCAL_MODE_STORAGE:-s3}
+
+      # Object storage backend (MinIO by default):
+      # - MinIO: set ZO_S3_PROVIDER=minio, ZO_S3_SERVER_URL=http://minio:9000,
+      #   and use the ZO_S3_* credential fields. Both services must share swarm-public.
+      # - AWS S3: set ZO_S3_PROVIDER=aws and use the ZO_S3_* credential fields.
+      # - Azure Blob: set ZO_S3_PROVIDER=azure, leave ZO_S3_SERVER_URL empty,
+      #   clear ZO_S3_ACCESS_KEY / ZO_S3_SECRET_KEY, and provide
+      #   AZURE_STORAGE_ACCOUNT_NAME / AZURE_STORAGE_ACCOUNT_KEY.
+      ZO_S3_SERVER_URL: ${ZO_S3_SERVER_URL:-}
+      ZO_S3_REGION_NAME: ${ZO_S3_REGION_NAME:-us-east-1}
+      ZO_S3_ACCESS_KEY: ${ZO_S3_ACCESS_KEY:-}
+      ZO_S3_SECRET_KEY: ${ZO_S3_SECRET_KEY:-}
+      ZO_S3_BUCKET_NAME: ${ZO_S3_BUCKET_NAME:-openobserve-data}
+      ZO_S3_BUCKET_PREFIX: ${ZO_S3_BUCKET_PREFIX:-}
+      ZO_S3_PROVIDER: ${ZO_S3_PROVIDER:-minio}
+      AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME:-}
+      AZURE_STORAGE_ACCOUNT_KEY: ${AZURE_STORAGE_ACCOUNT_KEY:-}
+
+      # Metadata store: SQLite by default, or explicitly configured bundled/external Postgres.
+      ZO_META_STORE: ${ZO_META_STORE:-sqlite}
+      ZO_META_POSTGRES_DSN: ${ZO_META_POSTGRES_DSN:-}
+
+      # Local cache/WAL path inside the container.
+      ZO_DATA_DIR: /data/openobserve
+
+      # Enterprise Dex / OIDC integration.
+      O2_DEX_ENABLED: ${DEX_ENABLED:-false}
+      O2_DEX_CLIENT_ID: ${DEX_CLIENT_ID:-}
+      O2_DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET:-}
+      O2_DEX_BASE_URL: ${O2_DEX_BASE_URL:-}
+      O2_CALLBACK_URL: ${O2_CALLBACK_URL:-}
+      O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
+      O2_DEX_SCOPES: ${O2_DEX_SCOPES:-openid profile email offline_access}
+      # Group claims control organisation and role mapping.
+      O2_DEX_GROUP_ATTRIBUTE: ${O2_DEX_GROUP_ATTRIBUTE:-groups}
+      O2_DEX_ROLE_ATTRIBUTE: ${O2_DEX_ROLE_ATTRIBUTE:-cn}
+      O2_DEX_DEFAULT_ORG: ${O2_DEX_DEFAULT_ORG:-default}
+      O2_DEX_TOKEN_EP_SUFFIX: ${O2_DEX_TOKEN_EP_SUFFIX:-/token}
+      O2_DEX_KEYS_EP_SUFFIX: ${O2_DEX_KEYS_EP_SUFFIX:-/keys}
+      O2_DEX_AUTH_EP_SUFFIX: ${O2_DEX_AUTH_EP_SUFFIX:-/auth}
+      O2_DEX_NATIVE_LOGIN_ENABLED: ${O2_DEX_NATIVE_LOGIN_ENABLED:-true}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${OPENOBSERVE_DATA_PATH:?}
+        target: /data
+
+  # -- Dex --
+  #
+  # Optional Dex identity provider for OpenObserve SSO, accessible through Traefik or published host ports.
+  #
+  openobserve-dex:
+    # NOTE: Dex 2.46.1 has SSO issues with OpenObserve 0.60.5+; pin the working 2.47 development build.
+    # Revise this pin to use its stable release tag when that release is available.
+    image: ghcr.io/dexidp/dex@sha256:fcd477aad23db856ec56652afb7f83fe249cbbb8fe11c43d8a38c7ba699e1a9d
+    deploy:
+      replicas: ${DEX_REPLICAS:-0}
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 5s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT:?}
+      resources:
+        limits:
+          memory: 256m
+      labels:
+        #### -- Enable traefik router for this service
+        - 'traefik.enable=${TRAEFIK_ROUTER_ENABLED:-false}'
+
+        #### -- Define traefik router for this service
+        - 'traefik.http.services.openobserve-dex.loadbalancer.server.port=${DEX_HTTP_PORT:-5556}'
+        - 'traefik.http.routers.openobserve-dex.entrypoints=web'
+        # Configure router domain and restrict routing to Dex endpoints
+        - 'traefik.http.routers.openobserve-dex.rule=Host(`${TRAEFIK_DOMAIN:-openobserve.invalid}`) && PathPrefix(`/dex`)'
+        # Prefer Dex for /dex requests over OpenObserve's hostname route (priority 10).
+        - 'traefik.http.routers.openobserve-dex.priority=100'
+
+    entrypoint:
+      - '/bin/sh'
+      - '-c'
+      - |
+        set -e
+
+        if [ "$${DEX_ENABLED:-false}" != "true" ]; then
+          while true; do
+            sleep 86400
+          done
+        fi
+
+        : "$${DEX_CLIENT_ID:?Set DEX_CLIENT_ID for bundled Dex}"
+        : "$${DEX_CLIENT_SECRET:?Set DEX_CLIENT_SECRET for bundled Dex}"
+        : "$${DEX_CONNECTOR_CLIENT_ID:?Set DEX_CONNECTOR_CLIENT_ID for bundled Dex}"
+        : "$${DEX_CONNECTOR_CLIENT_SECRET:?Set DEX_CONNECTOR_CLIENT_SECRET for bundled Dex}"
+
+        mkdir -p /etc/dex /var/dex
+        DEX_CONNECTOR="$${DEX_CONNECTOR:-google}"
+        DEX_ISSUER_URL="$${O2_DEX_BASE_URL:?Set O2_DEX_BASE_URL for bundled Dex}"
+        DEX_CONNECTOR_REDIRECT_URI="$${DEX_CONNECTOR_REDIRECT_URI:-$${DEX_ISSUER_URL%/}/callback}"
+        OPENOBSERVE_REDIRECT_URI="$${O2_DEX_REDIRECT_URL:?Set O2_DEX_REDIRECT_URL for bundled Dex}"
+
+        if [ -z "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
+          DEX_CONNECTOR_OIDC_SCOPES="openid profile email"
+        fi
+
+        DEX_CONNECTOR_OIDC_SCOPES_YAML=""
+        if [ "$$DEX_CONNECTOR" != "gitlab" ] && [ -n "$${DEX_CONNECTOR_OIDC_SCOPES:-}" ]; then
+          DEX_CONNECTOR_OIDC_SCOPES_YAML="    scopes:"
+          for scope in $$DEX_CONNECTOR_OIDC_SCOPES; do
+            DEX_CONNECTOR_OIDC_SCOPES_YAML="$$(printf '%s\n      - %s' "$$DEX_CONNECTOR_OIDC_SCOPES_YAML" "$$scope")"
+          done
+        fi
+
+        DEX_CONNECTOR_OIDC_GROUPS_YAML=""
+        if [ "$$DEX_CONNECTOR" = "gitlab" ] && [ -n "$${DEX_CONNECTOR_GROUPS:-}" ]; then
+          DEX_CONNECTOR_OIDC_GROUPS_YAML="    groups:"
+          for group in $$DEX_CONNECTOR_GROUPS; do
+            DEX_CONNECTOR_OIDC_GROUPS_YAML="$$(printf '%s\n      - %s' "$$DEX_CONNECTOR_OIDC_GROUPS_YAML" "$$group")"
+          done
+        fi
+
+        if [ "$$DEX_CONNECTOR" = "gitlab" ]; then
+          {
+            cat <<EOF
+        issuer: $${DEX_ISSUER_URL}
+        storage:
+          type: sqlite3
+          config:
+            file: /var/dex/dex.db
+        web:
+          http: 0.0.0.0:$${DEX_HTTP_PORT}
+        grpc:
+          addr: 0.0.0.0:$${DEX_GRPC_PORT}
+        oauth2:
+          # OpenObserve uses code/refresh grants; do not expose token exchange.
+          grantTypes:
+          - authorization_code
+          - refresh_token
+          skipApprovalScreen: true
+        staticClients:
+        - id: $${DEX_CLIENT_ID}
+          redirectURIs:
+          - $${OPENOBSERVE_REDIRECT_URI}
+          name: OpenObserve
+          secret: $${DEX_CLIENT_SECRET}
+        connectors:
+        - type: gitlab
+          id: gitlab
+          name: GitLab
+          config:
+            baseURL: $${GITLAB_BASE_URL}
+            clientID: $${DEX_CONNECTOR_CLIENT_ID}
+            clientSecret: $${DEX_CONNECTOR_CLIENT_SECRET}
+            redirectURI: $${DEX_CONNECTOR_REDIRECT_URI}
+        EOF
+            if [ -n "$$DEX_CONNECTOR_OIDC_GROUPS_YAML" ]; then
+              printf '%s\n' "$$DEX_CONNECTOR_OIDC_GROUPS_YAML"
+            fi
+          } > /etc/dex/config.yaml
+        else
+          {
+            cat <<EOF
+        issuer: $${DEX_ISSUER_URL}
+        storage:
+          type: sqlite3
+          config:
+            file: /var/dex/dex.db
+        web:
+          http: 0.0.0.0:$${DEX_HTTP_PORT}
+        grpc:
+          addr: 0.0.0.0:$${DEX_GRPC_PORT}
+        oauth2:
+          # OpenObserve uses code/refresh grants; do not expose token exchange.
+          grantTypes:
+          - authorization_code
+          - refresh_token
+          skipApprovalScreen: true
+        staticClients:
+        - id: $${DEX_CLIENT_ID}
+          redirectURIs:
+          - $${OPENOBSERVE_REDIRECT_URI}
+          name: OpenObserve
+          secret: $${DEX_CLIENT_SECRET}
+        connectors:
+        - type: oidc
+          id: google
+          name: Google
+          config:
+            issuer: https://accounts.google.com
+            clientID: $${DEX_CONNECTOR_CLIENT_ID}
+            clientSecret: $${DEX_CONNECTOR_CLIENT_SECRET}
+            redirectURI: $${DEX_CONNECTOR_REDIRECT_URI}
+        EOF
+            if [ -n "$$DEX_CONNECTOR_OIDC_SCOPES_YAML" ]; then
+              printf '%s\n' "$$DEX_CONNECTOR_OIDC_SCOPES_YAML"
+            fi
+          } > /etc/dex/config.yaml
+        fi
+
+        exec /usr/local/bin/dex serve /etc/dex/config.yaml
+
+    # NETWORK:
+    networks:
+      - swarm-public
+    ports:
+      # HTTP / ALB backend
+      - target: ${DEX_HTTP_PORT:-5556}
+        published: ${DEX_HTTP_PORT:-5556}
+        protocol: tcp
+        mode: host
+      # gRPC
+      - target: ${DEX_GRPC_PORT:-5557}
+        published: ${DEX_GRPC_PORT:-5557}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: openobserve-dex
+      service_version: 'v2.47.0-20261117201225-99754273'
+      TZ: ${TZ:-Etc/UTC}
+      TRAEFIK_DOMAIN: ${TRAEFIK_DOMAIN:-openobserve.invalid}
+      DEX_ENABLED: ${DEX_ENABLED:-false}
+      DEX_CLIENT_ID: ${DEX_CLIENT_ID:-}
+      DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET:-}
+      O2_DEX_BASE_URL: ${O2_DEX_BASE_URL:-}
+      O2_DEX_REDIRECT_URL: ${O2_DEX_REDIRECT_URL:-}
+      DEX_HTTP_PORT: ${DEX_HTTP_PORT:-5556}
+      DEX_GRPC_PORT: ${DEX_GRPC_PORT:-5557}
+      DEX_CONNECTOR: ${DEX_CONNECTOR:-google}
+      DEX_CONNECTOR_CLIENT_ID: ${DEX_CONNECTOR_CLIENT_ID:-}
+      DEX_CONNECTOR_CLIENT_SECRET: ${DEX_CONNECTOR_CLIENT_SECRET:-}
+      DEX_CONNECTOR_REDIRECT_URI: ${DEX_CONNECTOR_REDIRECT_URI:-}
+      DEX_CONNECTOR_OIDC_SCOPES: ${DEX_CONNECTOR_OIDC_SCOPES:-}
+      DEX_CONNECTOR_GROUPS: ${DEX_CONNECTOR_GROUPS:-}
+      GITLAB_BASE_URL: ${GITLAB_BASE_URL:-https://gitlab.com}
+
+    # VOLUMES:
+    volumes:
+      - type: volume
+        source: dex_data
+        target: /var/dex
+
+  # -- PostgreSQL --
+  #
+  # Optional bundled metadata database. Enable with POSTGRES_REPLICAS=1 and ZO_META_STORE=postgres.
+  #
+  postgres:
+    image: library/postgres@sha256:837bed18782820fe967067cb5328b02b0d9992c1be9a37ee0c9c492cfc03af3b
+    deploy:
+      replicas: ${POSTGRES_REPLICAS:-0}
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 5s
+      placement:
+        constraints:
+          - ${POSTGRES_PLACEMENT_CONSTRAINT:?}
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMLIMIT:-1g}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-openobserve} -d ${POSTGRES_DB:-openobserve}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # NETWORK:
+    networks:
+      - private-net
+    ports:
+      # PostgreSQL administration
+      - target: 5432
+        published: ${POSTGRES_PUBLISHED_PORT:-5432}
+        protocol: tcp
+        mode: host
+
+    # ENVIRONMENT:
+    environment:
+      # -- Fluentd Log Driver labels
+      service_project: openobserve-docker-swarm
+      service_name: postgres
+      service_version: '17.12-bookworm'
+      TZ: ${TZ:-Etc/UTC}
+      POSTGRES_USER: ${POSTGRES_USER:-openobserve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-openobserve}
+
+    # VOLUMES:
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:-./appdata/postgres}
+        target: /var/lib/postgresql/data
